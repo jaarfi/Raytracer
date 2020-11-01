@@ -21,11 +21,27 @@ class Vector(typing.NamedTuple):
 class VectorFunctions(object):
     @staticmethod
     def subtract(vector1: Vector, vector2: Vector):
-        return Vector(vector1.x-vector2.x,vector1.y-vector2.y,vector1.z-vector2.z)
+        return Vector(vector1.x - vector2.x, vector1.y - vector2.y, vector1.z - vector2.z)
 
     @staticmethod
     def add(vector1: Vector, vector2: Vector):
-        return Vector(vector1.x+vector2.x,vector1.y+vector2.y,vector1.z+vector2.z)
+        return Vector(vector1.x + vector2.x, vector1.y + vector2.y, vector1.z + vector2.z)
+
+    @staticmethod
+    def addScalarToAll(vector1: Vector, scalar: float):
+        return Vector(vector1.x + scalar, vector1.y + scalar, vector1.z + scalar)
+
+    @staticmethod
+    def multiply(vector1: Vector, scalar: float):
+        return Vector(vector1.x * scalar, vector1.y * scalar, vector1.z * scalar)
+
+    @staticmethod
+    def divide(vector1: Vector, scalar: float):
+        return Vector(vector1.x / scalar, vector1.y / scalar, vector1.z / scalar)
+
+    @staticmethod
+    def negate(vector1: Vector):
+        return Vector(-vector1.x, -vector1.y, -vector1.z)
 
     @staticmethod
     def fromTo(vector1: Vector, vector2: Vector):
@@ -34,6 +50,11 @@ class VectorFunctions(object):
     @staticmethod
     def dotProduct(vector1: Vector, vector2: Vector):           #SkalarProdukt
         return vector1.x*vector2.x + vector1.y*vector2.y + vector1.z*vector2.z
+
+    @staticmethod
+    def normalize(vector1: Vector):           #SkalarProdukt
+        length = np.sqrt(np.power(vector1.x,2) + np.power(vector1.y,2) + np.power(vector1.z,2))
+        return Vector(vector1.x/length,vector1.y/length, vector1.z/length)
 
 class Color(typing.NamedTuple):
     r: int = 0
@@ -60,18 +81,23 @@ class Pixel(typing.NamedTuple):
     point: Point
 
     def color(self, camera: Camera, sphere: Sphere):
-        vectorToCamera = VectorFunctions.fromTo(self.point, camera.center)
+        vectorFromCamera = VectorFunctions.fromTo(camera.center,self.point)
         vectorToSphereCenter = VectorFunctions.fromTo(self.point, sphere.center)
 
-        dotProd1 = VectorFunctions.dotProduct(vectorToCamera, vectorToCamera)
-        dotProd2 = VectorFunctions.dotProduct(vectorToCamera, vectorToSphereCenter)
+        dotProd1 = VectorFunctions.dotProduct(vectorFromCamera, vectorFromCamera)
+        dotProd2 = VectorFunctions.dotProduct(vectorFromCamera, vectorToSphereCenter)
         dotProd3 = VectorFunctions.dotProduct(vectorToSphereCenter, vectorToSphereCenter)
 
         poly = np.poly1d([dotProd1, 2 * dotProd2, dotProd3 - sphere.r * sphere.r])
-        results = poly.r
+        result = poly.r[0]
 
-        if (not np.iscomplex(results[0]) or not np.iscomplex(results[1])):
-            pixel_color = sphere.color  # rot
+        if (not np.iscomplex(result)): #Wenn er im Ersten Punkt schneidet reichts
+            intersecting_point = Point(*VectorFunctions.add(VectorFunctions.multiply(vectorFromCamera,result),camera.center))
+            normal_vector = VectorFunctions.fromTo(sphere.center, intersecting_point)
+            normalized_normal_vector = VectorFunctions.normalize(normal_vector)
+            color_vector = VectorFunctions.divide(normalized_normal_vector, 2)
+            color_vector = VectorFunctions.addScalarToAll(color_vector, 0.5)
+            pixel_color = Color(int(color_vector.x * 255), int(color_vector.y * 255), int(color_vector.z * 255))
         else:
             pixel_color = Color(0, 123, 255)  # Normale Farbe
 
