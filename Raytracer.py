@@ -43,6 +43,7 @@ class Color(typing.NamedTuple):
 class Sphere(typing.NamedTuple):
     r: float
     center: Point
+    color: Color
 
 class ViewingScreen(typing.NamedTuple):
     bottom_left: tuple
@@ -54,6 +55,27 @@ class ViewingScreen(typing.NamedTuple):
 class Camera(typing.NamedTuple):
     center: Point
     viewingScreen: ViewingScreen
+
+class Pixel(typing.NamedTuple):
+    point: Point
+
+    def color(self, camera: Camera, sphere: Sphere):
+        vectorToCamera = VectorFunctions.fromTo(self.point, camera.center)
+        vectorToSphereCenter = VectorFunctions.fromTo(self.point, sphere.center)
+
+        dotProd1 = VectorFunctions.dotProduct(vectorToCamera, vectorToCamera)
+        dotProd2 = VectorFunctions.dotProduct(vectorToCamera, vectorToSphereCenter)
+        dotProd3 = VectorFunctions.dotProduct(vectorToSphereCenter, vectorToSphereCenter)
+
+        poly = np.poly1d([dotProd1, 2 * dotProd2, dotProd3 - sphere.r * sphere.r])
+        results = poly.r
+
+        if (not np.iscomplex(results[0]) or not np.iscomplex(results[1])):
+            pixel_color = sphere.color  # rot
+        else:
+            pixel_color = Color(0, 123, 255)  # Normale Farbe
+
+        return pixel_color
 
 class Main():
     def __init__(self, sphere: Sphere, camera: Camera):
@@ -69,21 +91,12 @@ class Main():
         now = time.time()
         for i in range(1, self.window_width):
             for j in range(1, self.window_height):
-                currentPixelOnScreen = Point(*VectorFunctions.add(self.screen.bottom_left,Vector(self.screen.width/self.window_width*i,self.screen.height/self.window_height*j,0)))
-                currentPixelVectorToCamera = VectorFunctions.fromTo(currentPixelOnScreen,camera.center)
-                currentPixelVectorToSphereCenter = VectorFunctions.fromTo(currentPixelOnScreen,sphere.center)
+                currentPixelPoint = Point(*VectorFunctions.add(self.screen.bottom_left,Vector(self.screen.width/self.window_width*i,self.screen.height/self.window_height*j,0)))
+                currentPixel = Pixel(currentPixelPoint)
 
-                pixel_color = [0, int(255 * i / self.window_width), 255]    #Normale Farbe
-                self.picture.insertPixel(pixel_color, i, j)
 
-                dotProd1 = VectorFunctions.dotProduct(currentPixelVectorToCamera,currentPixelVectorToCamera)
-                dotProd2 = VectorFunctions.dotProduct(currentPixelVectorToCamera,currentPixelVectorToSphereCenter)
-                dotProd3 = VectorFunctions.dotProduct(currentPixelVectorToSphereCenter,currentPixelVectorToSphereCenter)
-                poly = np.poly1d([dotProd1,2*dotProd2,dotProd3-sphere.r*sphere.r])
-                results = poly.r
-                if (not np.iscomplex(results[0]) or not np.iscomplex(results[1])):
-                    pixel_color = [255, 0, 0]  # Normale Farbe
-                    self.picture.insertPixel(pixel_color, i, j)
+                self.picture.insertPixel(currentPixel.color(camera,sphere), i, j)
+
         print(time.time()-now)
 
 
@@ -102,6 +115,6 @@ class Picture():
         self.values[x][y] = color
 
 camera = Camera(Point(0,0,0),ViewingScreen(Point(-2,-1,-4),4,4,200,200))
-sphere = Sphere(0.4, Point(0,0,-2))
+sphere = Sphere(0.4, Point(0,0,-2), Color(0,255,0))
 main = Main(sphere, camera)
 v = Vector(0,0,0)
