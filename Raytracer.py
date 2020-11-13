@@ -171,11 +171,11 @@ class Picture():
     def insertPixel(self, color: Color, x, y):
         self.values[x][y] = color
 
-camera = Camera(Point(0,0,0),ViewingScreen(Point(-2,-1,-4),4,4,256,256))
+camera = Camera(Point(0,0,0),ViewingScreen(Point(-2,-1,-4),4,4,512,512))
 hit = HittableObject()
-point = Point(0,0,-2)
-color = Color(255,0,255)
+point = Point(0,1,-2)
+color = Color(0,128,255)
 sphere = Sphere(0.5, point, color)
-light = LightSource(Point(-2, 2, 0),0.99)
+light = LightSource(Point(-2, 2, 1),0.99)
 main = Main(sphere, camera, light)
 v = Vector(0,0,0)
