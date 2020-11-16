@@ -40,7 +40,7 @@ class Polygon():
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
 
-        ax.set_xlim3d(0,5)
+        ax.set_xlim3d(0, 5)
         ax.set_ylim3d(0, 5)
         ax.set_zlim3d(0, 5)
 
