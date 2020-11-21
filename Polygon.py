@@ -47,9 +47,6 @@ class Polygon():
         plt.show()
 
 
-    def getZS(self):
-        return self.zs
-
     def getVert(self):
         verts = [list(zip(*self.coord))]
         return verts
