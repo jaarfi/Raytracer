@@ -24,7 +24,7 @@ class Polygon():
         #self.coord = np.concatenate((self.coord, [self.coord[0]]), axis=0)
         print(self.coord)
 
-        self.drawPolygon()
+        #self.drawPolygon()
 
 
 
@@ -47,4 +47,12 @@ class Polygon():
         plt.show()
 
 
-testPol = Polygon(0,1,1, 0,0,1, 0,0,0)
+    def getZS(self):
+        return self.zs
+
+    def getVert(self):
+        verts = [list(zip(*self.coord))]
+        return verts
+
+
+#testPol = Polygon(0,1,1, 0,0,1, 0,0,0)
