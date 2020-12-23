@@ -171,7 +171,7 @@ class Picture():
     def insertPixel(self, color: Color, x, y):
         self.values[x][y] = color
 
-camera = Camera(Point(0,0,0),ViewingScreen(Point(-2,-1,-4),4,4,512,512))
+camera = Camera(Point(0,0,0),ViewingScreen(Point(-2,-1,-4),4,4,200,200))
 hit = HittableObject()
 point = Point(0,1,-2)
 color = Color(0,128,255)

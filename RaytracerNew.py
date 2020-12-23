@@ -52,32 +52,31 @@ class Triangle():
         pvec = np.cross(ray,edge2)
         det = np.dot(edge, pvec)            #Check if Triangle is parallel to ray
         if det == 0:
-            return -1
+            return False
 
         inv_det = 1/det
         tvec = np.subtract(source, self.p1)
         u = np.dot(tvec, pvec) * inv_det
         if u < 0 or u > 1:
-            return -1
+            return False
 
 
         qvec = np.cross(tvec, edge)
         v = np.dot(ray,qvec) * inv_det
         if v < 0 or (v + u) > 1:
-            return -1
+            return False
 
         t = np.dot(edge2, qvec) * inv_det
         if t >= 0:
-            return t
+            return np.add(source, ray*t)
         else:
-            return -1
+            return False
 
-    def lightIntensity(self, source, ray, lightSource):
-        intersecPoint = np.add(source, ray)
+    def lightIntensity(self, intersecPoint, lightSource):
         vec = np.subtract(lightSource, intersecPoint)
-        factor = np.dot(vec,self.normalVector) / (np.linalg.norm(vec) * np.linalg.norm(self.normalVector))
+        factor = np.dot(vec,self.normalVector) / ((np.linalg.norm(vec) * np.linalg.norm(self.normalVector)))
         if factor < 0:
-            factor = 0
+            factor = -factor
         return self.color * factor
 
 class Rectangle:
@@ -87,13 +86,13 @@ class Rectangle:
 
     def intersects(self, source, ray):
         for tri in self.triangles:
-            t = tri.intersects(source,ray)
-            if t >= 0:
-                return t
-        return -1
+            intersecPoint = tri.intersects(source,ray)
+            if np.any(intersecPoint!=0):
+                return intersecPoint
+        return False
 
-    def lightIntensity(self, source, ray, lightSource):
-        return self.triangles[0].lightIntensity(source, ray, lightSource)
+    def lightIntensity(self, intersecPoint, lightSource):
+        return self.triangles[0].lightIntensity(intersecPoint, lightSource)
 
 class Cuboid:
     def __init__(self, coordsBotLeftFront, coordsBotRightFront, coordsTopRightFront, coordsTopRightBack, color):
@@ -103,43 +102,39 @@ class Cuboid:
         coordsBotRightBack = coordsBotRightFront + np.subtract(coordsTopRightBack, coordsTopRightFront)
         coordsTopLeftBack = coordsTopLeftFront + np.subtract(coordsTopRightBack, coordsTopRightFront)
 
-        self.rectangles.append(Rectangle(coordsBotLeftFront, coordsBotRightFront, coordsTopRightFront, (0,0,255)))     #vorne und hinten
-        self.rectangles.append(Rectangle(coordsBotLeftBack, coordsBotRightBack, coordsTopRightBack, (0,255,0)))
+        self.rectangles.append(Rectangle(coordsBotLeftFront, coordsBotRightFront, coordsTopRightFront, color))     #vorne und hinten
+        self.rectangles.append(Rectangle(coordsBotLeftBack, coordsBotRightBack, coordsTopRightBack, color))
 
-        self.rectangles.append(Rectangle(coordsBotLeftFront, coordsBotRightFront, coordsBotRightBack, (0,255,255)))      #oben und unten
-        self.rectangles.append(Rectangle(coordsTopLeftFront, coordsTopRightFront, coordsTopRightBack, (255,0,0)))
+        self.rectangles.append(Rectangle(coordsBotLeftFront, coordsTopLeftFront, coordsTopLeftBack, color))        #links und rechts
+        self.rectangles.append(Rectangle(coordsBotRightFront, coordsBotRightBack, coordsTopRightBack, color))
 
-        self.rectangles.append(Rectangle(coordsBotLeftFront, coordsTopLeftFront, coordsTopLeftBack, (255,0,255)))        #links und rechts
-        self.rectangles.append(Rectangle(coordsBotRightFront, coordsBotRightBack, coordsTopRightBack, (255,255,0)))
+        self.rectangles.append(Rectangle(coordsBotLeftFront, coordsBotRightFront, coordsBotRightBack, color))      #oben und unten
+        self.rectangles.append(Rectangle(coordsTopLeftFront, coordsTopRightFront, coordsTopRightBack, color))
 
+        self.rectDict = {}
 
     def intersects(self, source, ray):
-        minT = math.inf
+        realIntersecPoint = (math.inf,math.inf,math.inf)
         for rect in self.rectangles:
-            t = rect.intersects(source,ray)
-            if minT > t >= 0:
-                minT = t
+            intersecPoint = rect.intersects(source,ray)
+            if np.any(intersecPoint!=0):
+                self.rectDict[np.array2string(intersecPoint)] = rect
+                if np.linalg.norm(np.subtract(intersecPoint,source)) < np.linalg.norm(np.subtract(realIntersecPoint, source)):
+                    realIntersecPoint = intersecPoint
 
-        if minT == math.inf:
-            return -1
-        return minT
+        if realIntersecPoint[0] == math.inf:
+            return False
+        return realIntersecPoint
 
-    def lightIntensity(self, source, ray, lightSource):
-        intersecPoint = np.add(source, ray)
-        for rect in self.rectangles:
-            vec = np.subtract(rect.triangles[0].p1, intersecPoint)
-            dot = np.dot(vec, rect.triangles[0].normalVector)
-            #print(rect,dot)
-            if dot < 0.00001:
-                return rect.lightIntensity(source,ray,lightSource)
-        print("ALAAAAAAAAAAAAAAAAAAAAAARM")
+    def lightIntensity(self, intersecPoint, lightSource):
+        return self.rectDict[np.array2string(intersecPoint)].lightIntensity(intersecPoint,lightSource)
 
-rect = Cuboid((0, 0, 4), (-1, 3, 4), (1, 3, 4), (6,12,6), (255,0,0))
-tri = Triangle((0, 0, 4), (-1, 3, 4), (1, 3, 4), (255,0,0))
+
+rect = Cuboid((0, 0, 4), (1,0,4), (4,8,4), (8,12,16), (255,0,0))
 
 camera = Camera((2,3,0))
-screen = Screen((0,1,1),(4,1,1),(4,5,1), 100, 100)
-light = Light((5,0,0))
+screen = Screen((0,1,1),(4,1,1),(4,5,1), 200, 200)
+light = Light((10,10,0))
 
 pic = Picture(screen.xResolution, screen.yResolution)
 
@@ -155,14 +150,20 @@ for i in range(screen.xResolution):
 
         pixelCoords = screen.coordsBotLeft + widthVec*i/screen.xResolution + heightVec*j/screen.yResolution
         ray = np.subtract(pixelCoords,camera.coords)
-        t = rect.intersects(camera.coords, ray)
-        if t >= 0:
-            color = rect.lightIntensity(camera.coords, ray * t, light.coords)
-            pic.insertPixel(color, j, i)
+        intersecPoint = rect.intersects(camera.coords, ray)
+        if np.any(intersecPoint!=0):
+            color = rect.lightIntensity(intersecPoint, light.coords)
+            pic.insertPixel(color, i, j)
 
         else:
-            pic.insertPixel((175,238,238),j,i)
+            pic.insertPixel((175,238,238),i,j)
 
 print(time.time()-starttime)
+
+x =(0,0,0)
+if x:
+    print("hi")
+else:
+    print("bye")
 pic.draw()
 
