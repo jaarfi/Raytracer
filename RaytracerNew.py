@@ -182,7 +182,7 @@ def traceRay(pixelCoords, cameraCoords, scene, light):
 
     hitObject = dicto[tempdist]
     rayFromHitPointtoLight = np.subtract(light.coords, hitObject.intPoint)
-    outerHitPoint = hitObject.intPoint + hitObject.getNormalVector(hitObject.intPoint) * 0.0001
+    outerHitPoint = hitObject.intPoint + hitObject.getNormalVector(hitObject.intPoint) * 0.0001 #Punkt Richutng Normalvektor uas dem Körper bewegen, um slebstSchattiuerung vorzubeugen
 
     color = hitObject.colorInPoint(hitObject.intPoint, light.coords)
 
