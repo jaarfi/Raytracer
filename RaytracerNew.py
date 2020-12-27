@@ -189,7 +189,7 @@ def traceRay(pixelCoords, cameraCoords, scene, light):
     for s in scene:
         shadowPoint = s.intersects(outerHitPoint, rayFromHitPointtoLight)
         if np.any(shadowPoint) != 0:
-            if np.linalg.norm(np.subtract(shadowPoint, hitObject.intPoint)) < np.linalg.norm(rayFromHitPointtoLight):
+            if np.linalg.norm(np.subtract(shadowPoint, hitObject.intPoint)) < np.linalg.norm(rayFromHitPointtoLight): #Überpüft ob Schatten werfednes Objekt vor der Lichtquelle steht
                 #print(hitObject.name, "trifft", s.name, "auf dem weg zum licht")
                 return color * 0.75
     return color
