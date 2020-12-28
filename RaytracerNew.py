@@ -19,27 +19,12 @@ class Camera():
 
 
 class Screen():
-    def __init__(self, coordsBotLeft, coordsBotRight, coordsTopRight, xResolution, yResolution):
+    def __init__(self, coordsBotLeft, coordsTopRight, xResolution, yResolution):
         self.coordsBotLeft = coordsBotLeft
-        self.coordsBotRight = coordsBotRight
         self.coordsTopRight = coordsTopRight
         self.xResolution = xResolution
         self.yResolution = yResolution
 
-
-class Picture():
-    def __init__(self, width, height):
-        self.values = np.array(np.zeros((height, width, 3), dtype=int))
-        self.width = width
-        self.height = height
-
-    def insertPixel(self, color, x, y):
-        self.values[y][x] = color
-
-    def draw(self):
-        plt.imshow(self.values)
-        plt.gca().invert_yaxis()
-        plt.show()
 
 
 class Triangle():
@@ -52,15 +37,24 @@ class Triangle():
         self.intPoint = ()
         self.name = name
 
-    def intersects(self, source, ray):  # Möller Trumbore
+    def intersects(self, source, rays):  # Möller Trumbore
 
         edge = np.subtract(self.p2, self.p1)
         edge2 = np.subtract(self.p3, self.p1)
 
-        pvec = np.cross(ray, edge2)
-        det = np.dot(edge, pvec)  # Check if Triangle is parallel to ray
-        if det == 0:
-            return False
+        pvec = np.cross(rays, edge2)
+        det = pvec.dot(edge)
+
+        #det = np.dot(edge, pvec)  # Check if Triangle is parallel to ray
+        #if det == 0:
+         #   return False
+
+
+
+        pvec = np.where(det != 0, pvec, (0,0,0))
+        print(pvec)
+        print(" ")
+
 
         inv_det = 1 / det
         tvec = np.subtract(source, self.p1)
@@ -100,12 +94,14 @@ class Rectangle:
         self.intPoint = ()
         self.name = name
 
-    def intersects(self, source, ray):
+    def intersects(self, source, rays):
+        intersecPoints = []
         for tri in self.triangles:
-            intersecPoint = tri.intersects(source, ray)
+            intersecPoint = tri.intersects(source, rays)
             if np.any(intersecPoint != 0):
-                return intersecPoint
-        return False
+                intersecPoints.append(intersecPoint)
+            else:
+                intersecPoints.append((np.inf,np.inf,np.inf))
 
     def colorInPoint(self, intersecPoint, lightSource):
         return self.triangles[0].colorInPoint(intersecPoint, lightSource)
@@ -142,10 +138,10 @@ class Cuboid:
         self.intPoint = ()
         self.name = name
 
-    def intersects(self, source, ray):
+    def intersects(self, source, rays):
         realIntersecPoint = (math.inf, math.inf, math.inf)
         for rect in self.rectangles:
-            intersecPoint = rect.intersects(source, ray)
+            intersecPoints = rect.intersects(source, rays)
             if np.any(intersecPoint != 0):
                 self.rectDict[np.array2string(intersecPoint)] = rect
                 if np.linalg.norm(np.subtract(intersecPoint, source)) < np.linalg.norm(
@@ -163,9 +159,12 @@ class Cuboid:
         return self.rectDict[np.array2string(intersecPoint)].normalVector
 
 
-def traceRay(pixelCoords, cameraCoords, scene, light):
-    ray = np.subtract(pixelCoords, camera.coords)
+def traceRay(allPixelCoords, cameraCoords, scene, light):
+    colors = []
+
+    ray = np.subtract(allPixelCoords, camera.coords)
     dicto = {}
+
     tempdist = np.inf
     for s in scene:
         intersecPoint = s.intersects(camera.coords, ray)
@@ -178,7 +177,7 @@ def traceRay(pixelCoords, cameraCoords, scene, light):
                 s.intPoint = intersecPoint
 
     if tempdist == np.inf:
-        return (0, 0, 0)
+        colors.append((0, 0, 0))
 
     hitObject = dicto[tempdist]
     rayFromHitPointtoLight = np.subtract(light.coords, hitObject.intPoint)
@@ -186,14 +185,18 @@ def traceRay(pixelCoords, cameraCoords, scene, light):
 
     color = hitObject.colorInPoint(hitObject.intPoint, light.coords)
 
+    flag = 1
+
     for s in scene:
         shadowPoint = s.intersects(outerHitPoint, rayFromHitPointtoLight)
         if np.any(shadowPoint) != 0:
             if np.linalg.norm(np.subtract(shadowPoint, hitObject.intPoint)) < np.linalg.norm(rayFromHitPointtoLight): #Überpüft ob Schatten werfednes Objekt vor der Lichtquelle steht
                 #print(hitObject.name, "trifft", s.name, "auf dem weg zum licht")
-                return color * 0.75
-    return color
-
+                colors.append((int(color[0] * 0.75), int(color[1] * 0.75), int(color[2]* 0.75)))
+                flag = 0
+                break
+    if flag:
+        colors.append((int(color[0]), int(color[1]), int(color[2])))
 
 scene = [Rectangle((0, 0, 0), (0, 0, 10), (0, 10, 10), (162, 0, 0), "links"),
          Rectangle((10, 0, 10), (10, 0, 0), (10, 10, 0), (0, 0, 162), "rechts"),
@@ -207,29 +210,23 @@ scene = [Rectangle((0, 0, 0), (0, 0, 10), (0, 10, 10), (162, 0, 0), "links"),
          ]
 
 camera = Camera((5, 5, -5))
-screen = Screen((0, 0, 0), (0, 10, 0), (10, 10, 0), 200, 200)
+screen = Screen((0, 0), (10, 10), 50, 50)
 light = Light((5, 9, 5), 1)
 
-pic = Picture(screen.xResolution, screen.yResolution)
+pixelCoordsX = np.linspace(screen.coordsBotLeft[0], screen.coordsTopRight[0],screen.xResolution)
+pixelCoordsY = np.linspace(screen.coordsBotLeft[1], screen.coordsTopRight[1],screen.yResolution)
+
+pixelCoords = [(x,y,0) for y in pixelCoordsY for x in pixelCoordsX ]
 
 starttime = time.time()
-for i in range(screen.xResolution):
-    if i % 10 == 0:
-        print(i / float(screen.xResolution) * 100, "%")
-    for j in range(screen.yResolution):
-        widthVec = np.subtract(screen.coordsBotRight, screen.coordsBotLeft)
-        screenWidth = np.linalg.norm(widthVec)
-        heightVec = np.subtract(screen.coordsTopRight, screen.coordsBotRight)
-        screenHeigth = np.linalg.norm(heightVec)
 
-        pixelCoords = screen.coordsBotLeft + widthVec * i / screen.xResolution + heightVec * j / screen.yResolution
-        pic.insertPixel(traceRay(pixelCoords, camera.coords, scene, light), j, i)
+colors = traceRay(pixelCoords, camera.coords, scene, light)
 
-print(time.time() - starttime)
 
-x = (0, 0, 0)
-if x:
-    print("hi")
-else:
-    print("bye")
-pic.draw()
+print(time.time() - starttime) #50x50 = 9.2s 100x100 = 36.9
+
+colors = np.reshape(colors, (screen.xResolution, screen.yResolution, 3))
+plt.imshow(colors)
+plt.gca().invert_yaxis()
+plt.show()
+
