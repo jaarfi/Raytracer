@@ -51,7 +51,7 @@ class Triangle():
 
 
 
-        pvec = np.where(det != 0, pvec, (0,0,0))
+        pvec = pvec[det!=0]
         print(pvec)
         print(" ")
 
