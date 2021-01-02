@@ -24,9 +24,10 @@ class Plane:
         dotProds = np.dot(raysToLightSource, self.normalVector)
         lengths1 = np.square(raysToLightSource[:,0]) + np.square(raysToLightSource[:,1]) + np.square(raysToLightSource[:,2])
         lengths1 = np.sqrt(lengths1)
-        lengths = lengths1 * np.linalg.norm(self.normalVector) * lengths1 * 0.1             #*lengths*0.1 for fsitance to light
+        lengths = lengths1 * lengths1 * 0.1 * np.linalg.norm(self.normalVector)             #*lengths*0.1 for fsitance to light
         factors = np.divide(dotProds,lengths)
 
+        print("object:", self, "factors:", factors)
         color = (self.color,) * len(intersectionPoints)
         color = color * factors[:,None]
         return color
@@ -82,6 +83,7 @@ class Cuboid:
         #index = np.arange(6)
         tSides = [np.where(a == b)[0] for a,b in zip(tOnlyValidValues, tReturnOnlyValidValues)]
         tSides = [a[0] for a in tSides]
+        #print(tSides)
 
 
 
@@ -92,13 +94,42 @@ class Cuboid:
                                     -1 * self.transformationMatrix[2][:3],
                                     self.transformationMatrix[2][:3]))
 
-        print(normalVectors)
+        #print(tSides)
         intersecPointsBoxSpace = rayOriginBoxSpace + tReturnOnlyValidValues[...,None]*rayDirectionsBoxSpaceOnlyHit
+        intersecPointsBoxSpace4 = np.insert(np.array(intersecPointsBoxSpace), 3, 1, axis=1)
+        intersecPointsWorldSpace = np.einsum('...ij,...j', self.inverseTransformationMatrix, intersecPointsBoxSpace4)
+        intersecPointsWorldSpace = np.delete(intersecPointsWorldSpace,3,1)
+
+        for i, val in enumerate(intersecPointsWorldSpace):
+            self.normalVectorDict[np.array2string(val)] = normalVectors[tSides[i]]
+
+
+        #print(self.normalVectorDict)
 
         return tReturn
 
     def colorsInPoints(self, intersectionPoints, lightSource):
+        normalVectors = []
+        for i in intersectionPoints:
+            normalVectors.append(self.normalVectorDict[np.array2string(i)])
+
+
+        #print("normalvectors:", normalVectors)
+        raysToLightSource = np.subtract(lightSource, intersectionPoints)
+        dotProds = [np.dot(rayToLightSource,normalVector) for rayToLightSource, normalVector in zip(raysToLightSource,normalVectors)]
+        #print("dotProds:",dotProds)
+        lengths1 = np.square(raysToLightSource[:, 0]) + np.square(raysToLightSource[:, 1]) + np.square(
+            raysToLightSource[:, 2])
+        lengths1 = np.sqrt(lengths1)
+        lengths = [length1 * length1 * 0.1 * np.linalg.norm(normalVector) for length1, normalVector in zip(lengths1,normalVectors)] # *lengths*0.1 for fsitance to light
+        factors = np.divide(dotProds, lengths)
+        print("object:", self, "factors:", factors)
+
         color = (self.color,) * len(intersectionPoints)
+        color = color * factors[:, None]
+        color = np.abs(color)
+        #print("colors:", color)
+        color = color.astype(int)
         return color
 
 
@@ -197,7 +228,7 @@ maxDistance = 1e6
 
 camera = (5, 5, -5)
 screen = ((0, 0), (10, 10))
-light = (5, 9, 5)
+light = (6, 9, 5)
 background = Background((0,0,0))
 
 pixelCoordsX = np.linspace(screen[0][0], screen[1][0],xResolution)
