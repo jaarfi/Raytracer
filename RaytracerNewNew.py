@@ -13,10 +13,13 @@ class Plane:
         self.distanceToOrigin = distanceToOrigin
         self.color = color
 
-    def intersect(self, rayOrigin, rayDirections):
-        rayDirections = rayDirections/np.linalg.norm(rayDirections)
+    def intersect(self, rayOrigin, rayDirections, writeToDict):
+        rayDirections = np.array([ray/np.linalg.norm(ray) for ray in rayDirections])
         a = -(np.dot(rayOrigin, self.normalVector) + self.distanceToOrigin)
         b = np.dot(rayDirections, self.normalVector)
+
+        b = np.where(b==0,-1,b)
+
         return a/b
 
     def colorsInPoints(self, intersectionPoints, lightSource):
@@ -24,13 +27,15 @@ class Plane:
         dotProds = np.dot(raysToLightSource, self.normalVector)
         lengths1 = np.square(raysToLightSource[:,0]) + np.square(raysToLightSource[:,1]) + np.square(raysToLightSource[:,2])
         lengths1 = np.sqrt(lengths1)
-        lengths = lengths1 * lengths1 * 0.1 * np.linalg.norm(self.normalVector)             #*lengths*0.1 for fsitance to light
+        lengths = lengths1 * lengths1 * 0.1 * np.linalg.norm(self.normalVector)
         factors = np.divide(dotProds,lengths)
 
-        print("object:", self, "factors:", factors)
         color = (self.color,) * len(intersectionPoints)
         color = color * factors[:,None]
         return color
+
+    def getNormalVector(self, intersectionPoint):
+        return self.normalVector
 
 class Cuboid:
     def __init__(self, size, center, rotation, color):
@@ -52,12 +57,13 @@ class Cuboid:
         self.normalVectorDict = {}
 
 
-    def intersect(self, rayOrigin, rayDirections):
+    def intersect(self, rayOrigin, rayDirections, writeToDict):
         rayOrigin4 = np.append(rayOrigin,1)
         rayOriginBoxSpace = np.matmul(self.transformationMatrix, rayOrigin4)[:3]
         rayDirections4 = np.insert(np.array(rayDirections), 3, 0, axis=1)
         rayDirectionsBoxSpace = np.einsum('...ij,...j', self.transformationMatrix, rayDirections4)
         rayDirectionsBoxSpace = np.delete(rayDirectionsBoxSpace,3,1)
+        rayDirectionsBoxSpace = np.array([ray/np.linalg.norm(ray) for ray in rayDirectionsBoxSpace])
 
         rayDirectionsBoxSpaceNoZeros = np.array([np.where(a==0,0.000001,a) for a in rayDirectionsBoxSpace])
 
@@ -73,85 +79,77 @@ class Cuboid:
 
         tReturn = np.where(np.logical_and(tMin<tMax, tMax>0),tMin,-1)
 
-        tReturnOnlyValidValues = tReturn[tReturn >= 0]
-        #rayDirectionsBoxSpaceOnlyHit = np.where((tReturn > 0)[...,None], rayDirectionsBoxSpace, np.zeros((len(rayDirectionsBoxSpace),3)))
-        rayDirectionsBoxSpaceOnlyHit = rayDirectionsBoxSpace[tReturn >= 0]
+        tReturn = np.where(tMin<0,tMax,tReturn)
 
-        t = np.array([(a[0],b[0],a[1],b[1],a[2],b[2]) for a,b in zip(t3,t4)])
-        tOnlyValidValues = t[tReturn >= 0]
+        if writeToDict:
+            tReturnOnlyValidValues = tReturn[tReturn >= 0]
+            rayDirectionsBoxSpaceOnlyHit = rayDirectionsBoxSpace[tReturn >= 0]
 
-        #index = np.arange(6)
-        tSides = [np.where(a == b)[0] for a,b in zip(tOnlyValidValues, tReturnOnlyValidValues)]
-        tSides = [a[0] for a in tSides]
-        #print(tSides)
+            t = np.array([(a[0],b[0],a[1],b[1],a[2],b[2]) for a,b in zip(t1,t2)])
+            tOnlyValidValues = t[tReturn >= 0]
 
-
-
-        normalVectors = np.array((  -1 * self.transformationMatrix[0][:3],
-                                    self.transformationMatrix[0][:3],
-                                    -1 * self.transformationMatrix[1][:3],
-                                    self.transformationMatrix[1][:3],
-                                    -1 * self.transformationMatrix[2][:3],
-                                    self.transformationMatrix[2][:3]))
-
-        #print(tSides)
-        intersecPointsBoxSpace = rayOriginBoxSpace + tReturnOnlyValidValues[...,None]*rayDirectionsBoxSpaceOnlyHit
-        intersecPointsBoxSpace4 = np.insert(np.array(intersecPointsBoxSpace), 3, 1, axis=1)
-        intersecPointsWorldSpace = np.einsum('...ij,...j', self.inverseTransformationMatrix, intersecPointsBoxSpace4)
-        intersecPointsWorldSpace = np.delete(intersecPointsWorldSpace,3,1)
-
-        for i, val in enumerate(intersecPointsWorldSpace):
-            self.normalVectorDict[np.array2string(val)] = normalVectors[tSides[i]]
+            tSides = [np.where(a == b)[0] for a,b in zip(tOnlyValidValues, tReturnOnlyValidValues)]
+            tSides = [a[0] for a in tSides]
 
 
-        #print(self.normalVectorDict)
+
+            normalVectors = np.array((  self.transformationMatrix[0][:3],           #rechts
+                                        - 1* self.transformationMatrix[0][:3],      #links
+                                        self.transformationMatrix[1][:3],           #oben
+                                        -1 * self.transformationMatrix[1][:3],      #unten
+                                        self.transformationMatrix[2][:3],           #//hinten
+                                        -1 * self.transformationMatrix[2][:3]))     #vorne
+
+
+
+            #intersecPointsBoxSpace = rayOriginBoxSpace + tReturnOnlyValidValues[...,None]*rayDirectionsBoxSpaceOnlyHit
+            #intersecPointsBoxSpace4 = np.insert(np.array(intersecPointsBoxSpace), 3, 1, axis=1)
+            #intersecPointsWorldSpace = np.einsum('...ij,...j', self.inverseTransformationMatrix, intersecPointsBoxSpace4)
+            #intersecPointsWorldSpace = np.delete(intersecPointsWorldSpace,3,1)
+
+            rayDirectionsOnlyHit = rayDirections[tReturn >= 0]
+            intersecPointsWorldSpace = rayOrigin + tReturnOnlyValidValues[...,None]*rayDirectionsOnlyHit
+
+
+            for i, val in enumerate(intersecPointsWorldSpace):
+                self.normalVectorDict[np.array2string(np.around(val,5))] = normalVectors[tSides[i]]
+
 
         return tReturn
 
     def colorsInPoints(self, intersectionPoints, lightSource):
         normalVectors = []
         for i in intersectionPoints:
-            normalVectors.append(self.normalVectorDict[np.array2string(i)])
+            normalVectors.append(self.normalVectorDict[np.array2string(np.around(i,5))])
 
 
-        #print("normalvectors:", normalVectors)
         raysToLightSource = np.subtract(lightSource, intersectionPoints)
         dotProds = [np.dot(rayToLightSource,normalVector) for rayToLightSource, normalVector in zip(raysToLightSource,normalVectors)]
-        #print("dotProds:",dotProds)
         lengths1 = np.square(raysToLightSource[:, 0]) + np.square(raysToLightSource[:, 1]) + np.square(
             raysToLightSource[:, 2])
         lengths1 = np.sqrt(lengths1)
         lengths = [length1 * length1 * 0.1 * np.linalg.norm(normalVector) for length1, normalVector in zip(lengths1,normalVectors)] # *lengths*0.1 for fsitance to light
         factors = np.divide(dotProds, lengths)
-        print("object:", self, "factors:", factors)
-
         color = (self.color,) * len(intersectionPoints)
         color = color * factors[:, None]
         color = np.abs(color)
-        #print("colors:", color)
         color = color.astype(int)
+
         return color
 
+    def getNormalVector(self, intersectionPoint):
+        return self.normalVectorDict[np.array2string(np.around(intersectionPoint,5))]
 
 class Background:
     def __init__(self, color):
         self.color = color
 
-def calculateTrueDistances(trueDistances, distances, body):
+def calculateTrueDistances(trueDistances, distances):
     trueDistancesValues, trueDistancesObjects = zip(*trueDistances)
     distancesValues, distancesObjects = zip(*distances)
 
     trueDistancesValues = np.array(trueDistancesValues)
     distancesValues = np.array(distancesValues)
-
-
-
-    #trueDistancesObjects = np.where(distancesValues < trueDistancesValues, distancesObjects, trueDistancesObjects)
-    #trueDistancesValues = np.where(distancesValues < trueDistancesValues, distancesValues, trueDistancesValues)
-
-
-
-    #trueDistances = np.array(list(zip(trueDistancesValues, trueDistancesObjects)))
 
     zeros = np.zeros(len(distancesValues))
 
@@ -160,24 +158,40 @@ def calculateTrueDistances(trueDistances, distances, body):
     return trueDistances
 
 
+
+
 def rayTrace(allPixelCoords, cameraCoords, scene, lightSource):
     pixelRays = np.subtract(allPixelCoords, cameraCoords)
-    pixelRays = pixelRays/np.linalg.norm(pixelRays)
+    pixelRays = np.array([pixelRay/np.linalg.norm(pixelRay) for pixelRay in pixelRays])
     trueDistances = np.array(((maxDistance,background),)*len(allPixelCoords))
+
     for body in scene:
-        distances = body.intersect(cameraCoords, pixelRays)
+        distances = body.intersect(cameraCoords, pixelRays, True)
         distancesAndObject = np.array(list(zip(distances, np.repeat(body,len(distances)))))
-        trueDistances = calculateTrueDistances(trueDistances,distancesAndObject,body)
+        trueDistances = calculateTrueDistances(trueDistances,distancesAndObject)
 
     trueIntersectionsPointsValues, trueIntersectionsPointsObjects = zip(*trueDistances)
     trueIntersectionsPointsValues = np.array(trueIntersectionsPointsValues)
     trueIntersectionsPointsValues = cameraCoords + pixelRays * trueIntersectionsPointsValues[:, None]
     trueIntersectionPoints = np.array(list(zip(trueIntersectionsPointsValues, trueIntersectionsPointsObjects)))
 
+    displacedIntersectionPoints = np.array([point + 0.001 * body.getNormalVector(np.around(point,5)) for point, body in trueIntersectionPoints])
+    raysFromLightToPoint = np.subtract(displacedIntersectionPoints, lightSource)
+    distancesToLight = np.array([np.linalg.norm(ray) for ray in raysFromLightToPoint])
+    trueShadowDistances = np.array(list(zip(distancesToLight, np.ones(len(distancesToLight)))))
+
+    for body in scene:
+        distances = body.intersect(lightSource, raysFromLightToPoint, False)
+        distancesAndFactor = np.array(list(zip(distances, np.repeat(0.25,len(distances)))))
+        trueShadowDistances = calculateTrueDistances(trueShadowDistances,distancesAndFactor)
+
+    dummyArray, factorsArray = zip(*trueShadowDistances)
+
+
+
+
     colors = np.arange(xResolution*yResolution)
     colors = np.ones(3) * colors[:,None]
-    #for x in trueIntersectionPoints:
-    #    colors.append(x[1].color)
 
     allIndices = []
     allBodyColors = []
@@ -197,6 +211,7 @@ def rayTrace(allPixelCoords, cameraCoords, scene, lightSource):
 
 
     colors = allBodyColors[sorter]
+    colors = np.array([color * factorsArray[i] for i, color in enumerate(colors)])
 
     colors = colors.astype(int)
     return colors
@@ -208,27 +223,19 @@ rechts  = Plane((-1, 0, 0), 10, (0,0,120))
 unten   = Plane((0,1,0), 0, (120,120,120))
 oben    = Plane((0,-1,0),10,(120,120,120))
 links   = Plane((1,0,0),0,(120,0,0))
-cube1   = Cuboid((1.5,1.5,1.5),(2,1.5,4),0,(120,120,0))
-cube2   = Cuboid((1.5,3,1.5),(7,3,5),45,(0,102,204))
+cube1   = Cuboid((1.5,1.5,1.5),(2.5,1.5,4),0,(0,120,120))
+cube2   = Cuboid((1.5,3,1.5),(7,3,5),45,(120,120,120))
 
 
-scene = [#Plane((0, 0, 0), (0, 0, 10), (0, 10, 10), (162, 0, 0), "links"),
-         #Plane((10, 0, 10), (10, 0, 0), (10, 10, 0), (0, 0, 162), "rechts"),
-         #Plane((0, 0, 0), (10, 0, 0), (10, 0, 10), (120, 120, 120), "unten")
-         #Plane((0, 10, 10), (10, 10, 10), (10, 10, 0), (120, 120, 120), "oben"),
-         #Plane((0, 0, 10), (10, 0, 10), (10, 10, 10), (120, 120, 120), "hinten")
+scene = [rechts, hinten, links, unten, oben, cube1, cube2]
 
-         #AxisAlignedCuboid((1, 0, 3), (5,0,3), (5,4,3), (5,4,7),(162,162,0),"1")
-         #Cuboid((7, 0, 4), (9,0,6), (9,5,6), (7,5,8),(60,60,60),"2"),
-         ]
-
-xResolution = 256
-yResolution = 256
+xResolution = 1080
+yResolution = 1080
 maxDistance = 1e6
 
-camera = (5, 5, -5)
+camera = (5, 5, -1)
 screen = ((0, 0), (10, 10))
-light = (6, 9, 5)
+light = (5, 9, 5)
 background = Background((0,0,0))
 
 pixelCoordsX = np.linspace(screen[0][0], screen[1][0],xResolution)
@@ -239,7 +246,7 @@ pixelCoords = [(x,y,0) for y in pixelCoordsY for x in pixelCoordsX ]
 print("los gehts")
 starttime = time.time()
 
-colors = rayTrace(pixelCoords, camera, [rechts, hinten, links, unten, oben, cube1, cube2], light)
+colors = rayTrace(pixelCoords, camera, scene, light)
 
 
 print("It took: ", time.time() - starttime, "s") #50x50 = 9.2s 100x100 = 36.9
