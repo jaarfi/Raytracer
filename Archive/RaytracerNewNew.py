@@ -14,24 +14,31 @@ class Light:
         self.specular = np.array(specular)
 
 class Plane:
-    def __init__(self, normalVector, distanceToOrigin, colorAmbient, colorDiffuse, colorSpecular, shininess):
+    def __init__(self, normalVector, distanceToOrigin, colorAmbient, colorDiffuse, colorSpecular, shininess, reflection):
         self.normalVector = normalVector / np.linalg.norm(normalVector)
         self.distanceToOrigin = distanceToOrigin
         self.colorAmbient = colorAmbient
         self.colorDiffuse = colorDiffuse
         self.colorSpecular = colorSpecular
         self.shininess = shininess
+        self.reflection = reflection
 
-    def intersect(self, rayOrigin, rayDirections, writeToDict):
+    def intersect(self, rayOrigins, rayDirections, writeToDict):
+        #print(rayOrigins)
         rayDirections = np.array([ray/np.linalg.norm(ray) for ray in rayDirections])
-        a = -(np.dot(rayOrigin, self.normalVector) + self.distanceToOrigin)
+        #a = [np.dot(ray,self.normalVector) for ray in rayOrigins]
+        #print(a)
+        #a = -(a+self.distanceToOrigin)
+        a = np.array([-(np.dot(ray, self.normalVector) + self.distanceToOrigin) for ray in rayOrigins])
         b = np.dot(rayDirections, self.normalVector)
 
         b = np.where(b==0,-1,b)
+        #print("a: ", a, "b: ",b)
+        #print("a/b: ",a/b)
 
         return a/b
 
-    def colorsInPoints(self, intersectionPoints, light, camera):
+    def colorsInPoints(self, intersectionPoints, light, camera, currentDepth):
         lightSource = light.origin
         raysToLightSource = np.subtract(lightSource, intersectionPoints)
         raysToLightSource = np.array([ray/np.linalg.norm(ray) for ray in raysToLightSource])
@@ -53,13 +60,21 @@ class Plane:
         specular = np.array([a * b for a,b in zip(specular, dotProdsSpecular)])
 
         colors = ambient + diffuse + specular
-        return colors
+        return colors * np.power(self.reflection,currentDepth)
 
     def getNormalVector(self, intersectionPoint):
         return self.normalVector
 
+
+    def getReflectedRay(self, intersectionPoint, rayDirection):
+        #print("isec: ",intersectionPoint, "dir: ", rayDirection)
+        rayDirection = rayDirection/np.linalg.norm(rayDirection)
+        normalVec = self.normalVector
+        temp = 2 * np.multiply(np.dot(normalVec, rayDirection),normalVec)
+        return rayDirection - temp
+
 class Cuboid:
-    def __init__(self, size, center, rotation, colorAmbient, colorDiffuse, colorSpecular, shininess):
+    def __init__(self, size, center, rotation, colorAmbient, colorDiffuse, colorSpecular, shininess, reflection):
         self.size = size
         self.rotation = np.radians(rotation)
         self.center = center
@@ -80,20 +95,27 @@ class Cuboid:
         self.transformationMatrix = np.around(self.transformationMatrix, 3)
         self.inverseTransformationMatrix = np.linalg.inv(self.transformationMatrix)
         self.normalVectorDict = {}
+        self.reflection = reflection
 
 
-    def intersect(self, rayOrigin, rayDirections, writeToDict):
-        rayOrigin4 = np.append(rayOrigin,1)
-        rayOriginBoxSpace = np.matmul(self.transformationMatrix, rayOrigin4)[:3]
+    def intersect(self, rayOrigins, rayDirections, writeToDict):
+        #rayOrigin4 = np.append(rayOrigin,1)
+        #rayOriginBoxSpace = np.matmul(self.transformationMatrix, rayOrigin4)[:3]
         rayDirections4 = np.insert(np.array(rayDirections), 3, 0, axis=1)
         rayDirectionsBoxSpace = np.einsum('...ij,...j', self.transformationMatrix, rayDirections4)
         rayDirectionsBoxSpace = np.delete(rayDirectionsBoxSpace,3,1)
         rayDirectionsBoxSpace = np.array([ray/np.linalg.norm(ray) for ray in rayDirectionsBoxSpace])
 
+        rayOrigins4 = np.insert(np.array(rayOrigins), 3, 1, axis=1)
+        rayOriginsBoxSpace = np.einsum('...ij,...j', self.transformationMatrix, rayOrigins4)
+        rayOriginsBoxSpace = np.delete(rayOriginsBoxSpace,3,1)
+
+        #print(rayOriginsBoxSpace)
+
         rayDirectionsBoxSpaceNoZeros = np.array([np.where(a==0,0.000001,a) for a in rayDirectionsBoxSpace])
 
-        t1 = [np.divide((-rayOriginBoxSpace + self.size),a) for a in rayDirectionsBoxSpaceNoZeros]
-        t2 = [np.divide((-rayOriginBoxSpace - self.size),a) for a in rayDirectionsBoxSpaceNoZeros]
+        t1 = [np.divide((-b + self.size),a) for a,b in zip(rayDirectionsBoxSpaceNoZeros,rayOriginsBoxSpace)]
+        t2 = [np.divide((-b - self.size),a) for a,b in zip(rayDirectionsBoxSpaceNoZeros,rayOriginsBoxSpace)]
 
 
         t3 = ([np.where(a<b,a,b) for a, b in np.array(list(zip(t1,t2)))])
@@ -132,8 +154,12 @@ class Cuboid:
             #intersecPointsWorldSpace = np.einsum('...ij,...j', self.inverseTransformationMatrix, intersecPointsBoxSpace4)
             #intersecPointsWorldSpace = np.delete(intersecPointsWorldSpace,3,1)
 
+
+            #print("rayDirections: ", rayDirections)
             rayDirectionsOnlyHit = rayDirections[tReturn >= 0]
-            intersecPointsWorldSpace = rayOrigin + tReturnOnlyValidValues[...,None]*rayDirectionsOnlyHit
+            #print("rayOrigins: ", rayOrigins)
+            rayOriginsOnlyHit = rayOrigins[tReturn >= 0]
+            intersecPointsWorldSpace = rayOriginsOnlyHit + tReturnOnlyValidValues[...,None]*rayDirectionsOnlyHit
 
 
             for i, val in enumerate(intersecPointsWorldSpace):
@@ -142,7 +168,7 @@ class Cuboid:
 
         return tReturn
 
-    def colorsInPoints(self, intersectionPoints, light, camera):
+    def colorsInPoints(self, intersectionPoints, light, camera, currentDepth):
         lightSource = light.origin
         normalVectors = []
         for i in intersectionPoints:
@@ -152,7 +178,7 @@ class Cuboid:
         raysToLightSource = np.subtract(lightSource, intersectionPoints)
         raysToLightSource = np.array([ray/np.linalg.norm(ray) for ray in raysToLightSource])
         dotProdsDiffuse = [np.dot(rayToLightSource, normalVector) for rayToLightSource, normalVector in zip(raysToLightSource, normalVectors)]
-        print("dotProdsDiffuse: ", dotProdsDiffuse)
+        #print("dotProdsDiffuse: ", dotProdsDiffuse)
         raysToCamera = np.subtract(camera, intersectionPoints)
         raysToCamera = np.array([ray / np.linalg.norm(ray) for ray in raysToCamera])
         addedRays = raysToLightSource + raysToCamera
@@ -170,7 +196,7 @@ class Cuboid:
         specular = np.array([a * b for a, b in zip(specular, dotProdsSpecular)])
 
         colors = ambient + diffuse + specular
-        return colors
+        return colors  * np.power(self.reflection,currentDepth)
 
         #lengths1 = np.square(raysToLightSource[:, 0]) + np.square(raysToLightSource[:, 1]) + np.square(
         #    raysToLightSource[:, 2])
@@ -188,6 +214,13 @@ class Cuboid:
 
     def getNormalVector(self, intersectionPoint):
         return self.normalVectorDict[np.array2string(np.around(intersectionPoint,5))]
+
+    def getReflectedRay(self, intersectionPoint, rayDirection):
+        #print("isec: ",intersectionPoint, "dir: ", rayDirection)
+        rayDirection = rayDirection/np.linalg.norm(rayDirection)
+        normalVec = self.normalVectorDict[np.array2string(np.around(intersectionPoint,5))]
+        temp = 2 * np.multiply(np.dot(normalVec, rayDirection),normalVec)
+        return rayDirection - temp
 
 class Background:
     def __init__(self, color):
@@ -209,13 +242,20 @@ def calculateTrueDistances(trueDistances, distances):
 
 
 
-def rayTrace(allPixelCoords, cameraCoords, scene, light):
+def rayTrace(allPixelCoords, cameraCoords, scene, light, maxDepth, currentDepth):
     pixelRays = np.subtract(allPixelCoords, cameraCoords)
+
+
+
     pixelRays = np.array([pixelRay/np.linalg.norm(pixelRay) for pixelRay in pixelRays])
     trueDistances = np.array(((maxDistance,background),)*len(allPixelCoords))
 
+    cameraCoordsArray = (cameraCoords,) * len(allPixelCoords)
+    cameraCoordsArray = np.array(cameraCoordsArray)
+
+
     for body in scene:
-        distances = body.intersect(cameraCoords, pixelRays, True)
+        distances = body.intersect(cameraCoordsArray, pixelRays, True)
         distancesAndObject = np.array(list(zip(distances, np.repeat(body,len(distances)))))
         trueDistances = calculateTrueDistances(trueDistances,distancesAndObject)
 
@@ -229,8 +269,11 @@ def rayTrace(allPixelCoords, cameraCoords, scene, light):
     distancesToLight = np.array([np.linalg.norm(ray) for ray in raysFromLightToPoint])
     trueShadowDistances = np.array(list(zip(distancesToLight, np.ones(len(distancesToLight)))))
 
+    lightOrigins = (light.origin,) * len(allPixelCoords)
+    lightOrigins = np.array(lightOrigins)
+
     for body in scene:
-        distances = body.intersect(light.origin, raysFromLightToPoint, False)
+        distances = body.intersect(lightOrigins, raysFromLightToPoint, False)
         distancesAndFactor = np.array(list(zip(distances, np.repeat(0.01,len(distances)))))
         trueShadowDistances = calculateTrueDistances(trueShadowDistances,distancesAndFactor)
 
@@ -242,6 +285,10 @@ def rayTrace(allPixelCoords, cameraCoords, scene, light):
     colors = np.arange(xResolution*yResolution)
     colors = np.ones(3) * colors[:,None]
 
+    #print(trueIntersectionsPointsObjects)
+
+
+
     allIndices = []
     allBodyColors = []
     for body in scene:
@@ -249,7 +296,7 @@ def rayTrace(allPixelCoords, cameraCoords, scene, light):
         bodyIntersectionsPoints = trueIntersectionPoints[trueIntersectionPoints[:,1]==body]
 
         bodyIntersectionsPointsValues, bodyIntersectionsPointsObjects = zip(*bodyIntersectionsPoints)
-        bodyColors = body.colorsInPoints(bodyIntersectionsPointsValues, light, camera)
+        bodyColors = body.colorsInPoints(bodyIntersectionsPointsValues, light, camera, currentDepth)
         allIndices.extend(indices)
         allBodyColors.extend(bodyColors)
 
@@ -259,21 +306,32 @@ def rayTrace(allPixelCoords, cameraCoords, scene, light):
     sorter = np.argsort(allIndices)
 
 
+    realColors = np.arange(xResolution * yResolution)
+    realColors = np.zeros(3) * realColors[:, None]
+
     colors = allBodyColors[sorter]
     colors = np.array([color * factorsArray[i] for i, color in enumerate(colors)])
+    realColors = realColors + colors
+    dummy = range(len(pixelRays))
+
+    pixelRays = [body.getReflectedRay(point,pixelRays[i]) for i, point, body in zip(dummy, trueIntersectionsPointsValues, trueIntersectionsPointsObjects)]
+
+
+
 
     #colors = colors.astype(int)
-    return colors
+    return realColors
 
 
 
-hinten  = Plane((0, 0, -1), 10, (0.1,0.1,0.1),(0.7,0.7,0.7),(0,0,0),10000)
-rechts  = Plane((-1, 0, 0), 10, (0.1,0,0),(0.7,0,0),(0,0,0),10000)
-unten   = Plane((0,1,0), 0, (0.1,0.1,0.1),(0.7,0.7,0.7),(0,0,0),10000)
-oben    = Plane((0,-1,0),10,(0.1,0.1,0.1),(0.7,0.7,0.7),(0,0,0),10000)
-links   = Plane((1,0,0),0,(0.1,0,0.1),(0.7,0,0.7),(0,0,0),10000)
-cube1   = Cuboid((1.5,1.5,1.5),(2.5,1.5,4),0,(0,0.1,0.1),(0,0.7,0.7),(1,1,1),100)
-cube2   = Cuboid((1.5,3,1.5),(7,3,5),45,(0.1,0.1,0),(0.7,0.7,0),(1,1,1),100)
+hinten  = Plane((0, 0, -1), 10, (0.1,0.1,0.1),(0.7,0.7,0.7),(0,0,0),10000,0)
+rechts  = Plane((-1, 0, 0), 10, (0.1,0,0),(0.7,0,0),(0,0,0),10000,0)
+unten   = Plane((0,1,0), 0, (0.1,0.1,0.1),(0.7,0.7,0.7),(0,0,0),10000,0)
+oben    = Plane((0,-1,0),10,(0.1,0.1,0.1),(0.7,0.7,0.7),(0,0,0),10000,0)
+links   = Plane((1,0,0),0,(0.1,0,0.1),(0.7,0,0.7),(0,0,0),10000,0)
+behind = Plane((1,0,0),10,(0.1,0,0.1),(0.7,0,0.7),(0,0,0),10000,0)
+cube1   = Cuboid((1.5,1.5,1.5),(2.5,1.5,4),0,(0,0.1,0.1),(0,0.7,0.7),(1,1,1),100,1)
+cube2   = Cuboid((1.5,3,1.5),(7,3,5),45,(0.1,0.1,0),(0.7,0.7,0),(1,1,1),100,1)
 
 
 scene = [rechts, hinten, links, unten, oben, cube1, cube2]
@@ -295,7 +353,7 @@ pixelCoords = [(x,y,0) for y in pixelCoordsY for x in pixelCoordsX ]
 print("los gehts")
 starttime = time.time()
 
-colors = rayTrace(pixelCoords, camera, scene, light)
+colors = rayTrace(pixelCoords, camera, scene, light, 2, 0)
 
 
 print("It took: ", time.time() - starttime, "s") #50x50 = 9.2s 100x100 = 36.9
