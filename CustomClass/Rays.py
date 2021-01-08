@@ -16,8 +16,10 @@ class Rays:
         rayDirections = self.directions
         rayOrigins = self.origins
 
-        zippedHitInformations = np.array([informationToZipped(body.intersect(rayOrigins, rayDirections, True)) for body in scene])
+        zippedHitInformations = np.array([body.intersect(rayOrigins, rayDirections, True) for body in scene])
         zippedHitInformations = reduceToMinimum(zippedHitInformations)
+
+
         bodies = zippedHitInformations[:,len(zippedHitInformations[0])-2]
 
 
@@ -29,11 +31,12 @@ class Rays:
             if not len(relevantInformations):
                 continue
 
-            rDistances, rPoints, rNormalVectors, rColors, rBodies, rTypes = zip(*relevantInformations)
-            relevantInformation = IntersecPointInformations(rDistances, rPoints, rNormalVectors, rColors, rBodies, rTypes)
+            #rDistances, rPoints, rNormalVectors, rColors, rBodies, rTypes = zip(*relevantInformations)
+            #relevantInformation = IntersecPointInformations(rDistances, rPoints, rNormalVectors, rColors, rBodies, rTypes)
 
 
-            bodyColors = body.surface.getColor(indices, scene, relevantInformation, self.maxDepth, self.currentDepth)
+
+            bodyColors = body.surface.getColor(indices, scene, relevantInformations, self.maxDepth, self.currentDepth)
             allIndices.extend(indices)
             allBodyColors.extend(bodyColors)
 
@@ -76,6 +79,7 @@ def informationToZipped(intersectionPointInformations):
 
 
 def reduceToMinimum(hitIntersectionInformations):
+
     distances = hitIntersectionInformations[:,:,0]
     distances = np.transpose(distances)
     distances[distances < 0] = np.inf
@@ -83,6 +87,7 @@ def reduceToMinimum(hitIntersectionInformations):
     indices = np.argmin(distances,axis=1)
     countIndices = np.arange(len(indices))
 
-    finalZip = hitIntersectionInformations[indices,countIndices]
+    finalZip = np.array(hitIntersectionInformations[indices,countIndices])
+
     return finalZip
 

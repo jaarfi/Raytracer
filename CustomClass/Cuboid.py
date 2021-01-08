@@ -81,9 +81,12 @@ class Cuboid:
         intersecPointsWorldSpace = rayOrigins + tReturn[..., None] * rayDirections
 
         normalVectorArray = [normalVectors[tSides]][0]
+        normalVectorArray = np.stack(normalVectorArray)
 
         colorsArray = (self.color, ) * len(rayOrigins)
         bodies = (self,) * len(rayOrigins)
         types = (type(self.surface),) * len(rayOrigins)
-        infos = IntersecPointInformations(tReturn, intersecPointsWorldSpace, normalVectorArray, colorsArray, bodies, types)
-        return infos
+        displacedPoints = intersecPointsWorldSpace + np.array(normalVectorArray)*0.01
+        zippedInformation = np.array(list(zip(tReturn, intersecPointsWorldSpace, normalVectorArray, displacedPoints, colorsArray, bodies, types)))
+        #infos = IntersecPointInformations(tReturn, intersecPointsWorldSpace, normalVectorArray, colorsArray, bodies, types)
+        return zippedInformation

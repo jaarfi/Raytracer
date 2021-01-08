@@ -18,16 +18,19 @@ class Plane:
         b = np.dot(rayDirections, self.normalVector)
 
         b = np.where(b == 0, -1, b)
-        normalVectorArray = (self.normalVector,) * len(rayOrigins)
-        #print("normalVectorArray:", normalVectorArray)
+        normalVectorArray = ((self.normalVector),) * len(rayOrigins)
+        normalVectorArray = np.stack(normalVectorArray)
+
         colorsArray = (self.color, ) * len(rayOrigins)
 
         distances = a/b
         intersecPoints = [distance * direction + origin for distance, direction, origin in zip(distances,rayDirections,rayOrigins)]
         bodies = (self,) * len(rayOrigins)
         types = (type(self.surface),) * len(rayOrigins)
-        infos = IntersecPointInformations(a/b, intersecPoints, normalVectorArray, colorsArray, bodies, types)
-        return infos
+        #infos = IntersecPointInformations(a/b, intersecPoints, normalVectorArray, colorsArray, bodies, types)
+        displacedPoints = intersecPoints + np.array(normalVectorArray)*0.01
+        zippedInformation = np.array(list(zip(distances, intersecPoints, normalVectorArray, displacedPoints, colorsArray, bodies, types)))
+        return zippedInformation
 
 class AxisAlignedSquare:
     def __init__(self, surface, origin, halfLength, shininess, reflection):
@@ -51,6 +54,7 @@ class AxisAlignedSquare:
 
         b = np.where(b == 0, -1, b)
         normalVectorArray = (self.normalVector,) * len(rayOrigins)
+        normalVectorArray = np.stack(normalVectorArray)
         #print("normalVectorArray:", normalVectorArray)
         colorsArray = (self.color, ) * len(rayOrigins)
 
@@ -61,8 +65,10 @@ class AxisAlignedSquare:
         distances = np.where(truthArray, distances, -1)
         bodies = (self,) * len(rayOrigins)
         types = (type(self.surface),) * len(rayOrigins)
-        infos = IntersecPointInformations(distances, intersecPoints, normalVectorArray, colorsArray, bodies,types)
-        return infos
+        #infos = IntersecPointInformations(distances, intersecPoints, normalVectorArray, colorsArray, bodies,types)
+        displacedPoints = intersecPoints + np.array(normalVectorArray)*0.01
+        zippedInformation = np.array(list(zip(distances, intersecPoints, normalVectorArray, displacedPoints, colorsArray, bodies, types)))
+        return zippedInformation
 
     def pointIsIn(self, intersectionPoint):
         if self.origin[0] - self.halfLength < intersectionPoint[0] < self.origin[0] + self.halfLength:

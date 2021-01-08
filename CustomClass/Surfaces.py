@@ -16,12 +16,15 @@ class Matt:
 
 
         if currentDepth < 1:
-            normalVectors = hitInformation.normalVectors
-            normalVectorsExtended = np.tile(normalVectors, (self.nrReflectedRays, 1))
+            normalVectors = hitInformation[:,2]
+            #print("normals", normalVectors)
+            #print(normalVectors.shape)
+            #normalVectorsExtended = np.tile(normalVectors, (self.nrReflectedRays, 1))
+            normalVectorsExtended = np.repeat(normalVectors, self.nrReflectedRays)
             randomVectorArray = hemisphereVectors(normalVectorsExtended)
 
 
-            displacedPointsExtended = np.tile(hitInformation.displacedPoints, (self.nrReflectedRays, 1))
+            displacedPointsExtended = np.tile(hitInformation[:,3], (self.nrReflectedRays, 1))
             rays = Rays(displacedPointsExtended, randomVectorArray, maxDepth, currentDepth + 1)
 
             dotProds = np.einsum('ij,ij->i',randomVectorArray, normalVectorsExtended)
@@ -33,9 +36,9 @@ class Matt:
             colors += np.multiply(colorsArray,temp)
 
         elif currentDepth < maxDepth:
-            normalVectors = hitInformation.normalVectors
-            randomVectorArray = randomVectors(hitInformation.normalVectors)
-            rays = Rays(hitInformation.displacedPoints, randomVectorArray, maxDepth, currentDepth + 1)
+            normalVectors = hitInformation[:,2]
+            randomVectorArray = randomVectors(normalVectors)
+            rays = Rays(hitInformation[:,3], randomVectorArray, maxDepth, currentDepth + 1)
 
             dotProds = np.einsum('ij,ij->i', randomVectorArray, normalVectors)
             temp = rays.getColors(scene)
@@ -65,8 +68,10 @@ def randomVectors(normalVectors):
     return randomVectors
 
 def hemisphereVectors(normalVectors):
-    option1 = [[vec[2],0,-vec[0]]/np.linalg.norm([vec[2],0,-vec[0]]) for vec in normalVectors]
-    option2 = [[0,-vec[2],vec[1]]/np.linalg.norm([0,-vec[2],vec[1]]) for vec in normalVectors]
+    #option1 = [[vec[2],0,-vec[0]]/np.linalg.norm([vec[2],0,-vec[0]]) for vec in normalVectors]
+    #option2 = [[0,-vec[2],vec[1]]/np.linalg.norm([0,-vec[2],vec[1]]) for vec in normalVectors]
+    option1 = np.array([[vec[2],0,-vec[0]] for vec in normalVectors])
+    option2 = np.array([[0,-vec[2],vec[1]] for vec in normalVectors])
     Nts = np.where((np.abs(normalVectors[:,0]) > np.abs(normalVectors[:,1]))[...,None], option1, option2)
     #print("1:", option1, "\n2:", option2, "\np:", perpendicularVectors)
     Nbs = np.cross(normalVectors,Nts)
