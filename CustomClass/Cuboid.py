@@ -3,14 +3,13 @@ from .IntersecPointInformations import IntersecPointInformations
 
 
 class Cuboid:
-    def __init__(self, size, center, rotation, colorAmbient, colorDiffuse, colorSpecular, shininess, reflection):
+    def __init__(self, surface, size, center, rotation, shininess, reflection):
         self.size = size
+        self.surface = surface
         self.rotation = np.radians(rotation)
         self.center = center
 
-        self.colorAmbient = colorAmbient
-        self.colorDiffuse = colorDiffuse
-        self.colorSpecular = colorSpecular
+        self.color = surface.color
         self.shininess = shininess
         self.rotationYMatrix = np.array([[np.cos(self.rotation), 0, np.sin(self.rotation), 0],
                                          [0, 1, 0, 0],
@@ -83,6 +82,7 @@ class Cuboid:
 
         normalVectorArray = [normalVectors[tSides]][0]
 
-        colorsArray = (self.colorDiffuse, ) * len(rayOrigins)
-        infos = IntersecPointInformations(tReturn, intersecPointsWorldSpace, normalVectorArray, colorsArray)
+        colorsArray = (self.color, ) * len(rayOrigins)
+        bodies = (self,) * len(rayOrigins)
+        infos = IntersecPointInformations(tReturn, intersecPointsWorldSpace, normalVectorArray, colorsArray, bodies)
         return infos

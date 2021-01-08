@@ -3,13 +3,12 @@ from .IntersecPointInformations import IntersecPointInformations
 
 
 class Plane:
-    def __init__(self, normalVector, distanceToOrigin, colorAmbient, colorDiffuse, colorSpecular, shininess,
+    def __init__(self, surface, normalVector, distanceToOrigin, shininess,
                  reflection):
         self.normalVector = normalVector / np.linalg.norm(normalVector)
+        self.surface = surface
         self.distanceToOrigin = distanceToOrigin
-        self.colorAmbient = colorAmbient
-        self.colorDiffuse = colorDiffuse
-        self.colorSpecular = colorSpecular
+        self.color = surface.color
         self.shininess = shininess
         self.reflection = reflection
 
@@ -21,11 +20,50 @@ class Plane:
         b = np.where(b == 0, -1, b)
         normalVectorArray = (self.normalVector,) * len(rayOrigins)
         #print("normalVectorArray:", normalVectorArray)
-        colorsArray = (self.colorDiffuse, ) * len(rayOrigins)
+        colorsArray = (self.color, ) * len(rayOrigins)
 
         distances = a/b
         intersecPoints = [distance * direction + origin for distance, direction, origin in zip(distances,rayDirections,rayOrigins)]
-        print("distances:", distances)
-        print("insecpoints:", intersecPoints)
-        infos = IntersecPointInformations(a/b, intersecPoints, normalVectorArray, colorsArray)
+        bodies = (self,) * len(rayOrigins)
+        infos = IntersecPointInformations(a/b, intersecPoints, normalVectorArray, colorsArray, bodies)
         return infos
+
+class AxisAlignedSquare:
+    def __init__(self, surface, origin, halfLength, shininess, reflection):
+        self.surface = surface
+        self.origin = origin
+        self.halfLength = halfLength
+        self.color = surface.color
+        self.shininess = shininess
+        self.reflection = reflection
+        self.normalVector = [0,-1,0]
+        self.distanceToOrigin = origin[1]
+        self.vertices = [[self.origin[0] + halfLength, self.origin[1], self.origin[2] + halfLength],
+                         [self.origin[0] - halfLength, self.origin[1], self.origin[2] + halfLength],
+                         [self.origin[0] + halfLength, self.origin[1], self.origin[2] - halfLength],
+                         [self.origin[0] - halfLength, self.origin[1], self.origin[2] - halfLength]]
+
+    def intersect(self, rayOrigins, rayDirections, writeToDict):
+        rayDirections = np.array([ray / np.linalg.norm(ray) for ray in rayDirections])
+        a = np.array([-(np.dot(ray, self.normalVector) + self.distanceToOrigin) for ray in rayOrigins])
+        b = np.dot(rayDirections, self.normalVector)
+
+        b = np.where(b == 0, -1, b)
+        normalVectorArray = (self.normalVector,) * len(rayOrigins)
+        #print("normalVectorArray:", normalVectorArray)
+        colorsArray = (self.color, ) * len(rayOrigins)
+
+        distances = a/b
+        intersecPoints = [distance * direction + origin for distance, direction, origin in zip(distances,rayDirections,rayOrigins)]
+
+        truthArray = [self.pointIsIn(point) for point in intersecPoints]
+        distances = np.where(truthArray, distances, -1)
+        bodies = (self,) * len(rayOrigins)
+        infos = IntersecPointInformations(distances, intersecPoints, normalVectorArray, colorsArray, bodies)
+        return infos
+
+    def pointIsIn(self, intersectionPoint):
+        if self.origin[0] - self.halfLength < intersectionPoint[0] < self.origin[0] + self.halfLength:
+            if self.origin[2] - self.halfLength < intersectionPoint[2] < self.origin[2] + self.halfLength:
+                return True
+        return False
