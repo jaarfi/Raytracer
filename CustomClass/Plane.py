@@ -25,7 +25,8 @@ class Plane:
         distances = a/b
         intersecPoints = [distance * direction + origin for distance, direction, origin in zip(distances,rayDirections,rayOrigins)]
         bodies = (self,) * len(rayOrigins)
-        infos = IntersecPointInformations(a/b, intersecPoints, normalVectorArray, colorsArray, bodies)
+        types = (type(self.surface),) * len(rayOrigins)
+        infos = IntersecPointInformations(a/b, intersecPoints, normalVectorArray, colorsArray, bodies, types)
         return infos
 
 class AxisAlignedSquare:
@@ -59,7 +60,8 @@ class AxisAlignedSquare:
         truthArray = [self.pointIsIn(point) for point in intersecPoints]
         distances = np.where(truthArray, distances, -1)
         bodies = (self,) * len(rayOrigins)
-        infos = IntersecPointInformations(distances, intersecPoints, normalVectorArray, colorsArray, bodies)
+        types = (type(self.surface),) * len(rayOrigins)
+        infos = IntersecPointInformations(distances, intersecPoints, normalVectorArray, colorsArray, bodies,types)
         return infos
 
     def pointIsIn(self, intersectionPoint):

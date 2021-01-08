@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import time
 from CustomClass.Plane import *
 from CustomClass.Cuboid import *
 from CustomClass.Background import *
@@ -7,56 +6,6 @@ from CustomClass.Light import *
 from CustomClass.Rays import *
 from CustomClass.Surfaces import *
 
-
-
-
-
-
-def getRaysColors(rays, scene, light):
-    pass
-
-def materialDiffuse(scene, intersectionPoints, light):
-    pass
-
-
-def getShortestDistancesInformations(shortestIntersectionInformations, bodyIntersectionInformations):
-    shortestDistances = shortestIntersectionInformations.distances
-
-    bodyDistances = bodyIntersectionInformations.distances
-
-    shortestIntersectionInformationsZipped = informationToZipped(shortestIntersectionInformations)
-    bodyIntersectionInformationsZipped = informationToZipped(bodyIntersectionInformations)
-
-    zeros = np.zeros(len(shortestDistances))
-
-
-    finalZip = np.where(np.logical_and((zeros <= bodyDistances), (bodyDistances< shortestDistances))[..., None], bodyIntersectionInformationsZipped, shortestIntersectionInformationsZipped)
-
-    dist, insec, norm,  col, bodies = zip(*finalZip)
-
-    #print(dist)
-    returnInformation = IntersecPointInformations(dist,insec,norm, col, bodies)
-
-
-    return returnInformation
-
-def informationToZipped(intersectionPointInformations):
-    dist = intersectionPointInformations.distances
-    insec = intersectionPointInformations.points
-    normals = intersectionPointInformations.normalVectors
-    disp = intersectionPointInformations.displacedPoints
-    bodies = intersectionPointInformations.bodies
-
-    return np.array(list(zip(dist, insec, normals, disp, bodies)))
-
-
-def rayTrace(rays, scene, light):
-
-
-
-    colors = rays.getColors(scene, light)
-
-    return colors
 
 matt_blue = Matt((0,0,0.7))
 matt_grey = Matt((0.7,0.7,0.7))
@@ -76,48 +25,47 @@ cube1 = Cuboid(matt_yellow, (1.5, 1.5, 1.5), (5, 1.5, 3), 0, 100, 0.2)
 
 scene = [rechts, hinten, links, unten, oben, light, behind, cube1]
 
-xResolution = 200
-yResolution = 200
+xResolution = 100
+yResolution = 100
 maxDistance = 1e6
 
 camera = (5, 5, -5)
 screen = ((0, 0), (10, 10))
-light = Light((5, 9, 2), (1, 1, 1), (1, 1, 1), (1, 1, 1), 0.5, 1000)
 background = Background((0, 0, 0))
 
 pixelCoordsX = np.linspace(screen[0][0], screen[1][0], xResolution)
 pixelCoordsY = np.linspace(screen[0][1], screen[1][1], yResolution)
+zeros = np.zeros(len(pixelCoordsX))
 
-pixelCoords = [(x, y, 0) for y in pixelCoordsY for x in pixelCoordsX]
-
+pixelCoords = np.array(np.meshgrid(pixelCoordsX, pixelCoordsY, 0)).T.reshape(-1,3)
 
 
 pixelRays = np.subtract(pixelCoords, camera)
-pixelRays = np.array([pixelRay / np.linalg.norm(pixelRay) for pixelRay in pixelRays])
+pixelRayLengths = np.apply_along_axis(np.linalg.norm, 0, pixelRays)
+pixelRays = pixelRays / pixelRayLengths
 
 cameraCoordsArray = (camera,) * len(pixelCoords)
 cameraCoordsArray = np.array(cameraCoordsArray)
 
 starttime = time.time()
 
-samples = 20
-maxDepth = 2
+samples = 1
+maxDepth = 4
 rays = Rays(cameraCoordsArray, pixelRays, maxDepth, 0)
 
-allColors = rayTrace(rays, scene, light)
+allColors = rays.getColors(scene)
 for i in range(samples-1):
-    colors = rayTrace(rays,  scene, light)
+    colors = rays.getColors(scene)
     allColors = allColors + colors
 allColors = np.array(allColors)
 allColors = allColors/samples
 
 timeTook = time.time() - starttime
-print("It took:", timeTook, "s")  # res.depth.nrrays.samples 100x2x20x4 = 562s 100x2x5x4 = 146s 100x2x20x1 = 143s
+print("It took:", timeTook, "s")  # 1sample, 1ray, 4depth, 100r = 12.27s
 
 
 colors = np.reshape(allColors, (xResolution, yResolution, 3))
 plt.imshow(colors)
 plt.gca().invert_yaxis()
 plt.show()
-
 

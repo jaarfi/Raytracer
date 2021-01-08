@@ -9,48 +9,31 @@ class Rays:
         self.maxDepth = maxDepth  # ray_depth is the number of the refrections + transmissions/refractions, starting at zero for camera rays
         self.currentDepth = currentDepth
 
-    def getColors(self, scene, light):
+    def getColors(self, scene):
 
         print("depth",self.currentDepth)
 
         rayDirections = self.directions
         rayOrigins = self.origins
 
-        #maxRange = np.array((1e19,) * len(rayOrigins))
-        #interPoints = np.array(([0, 0, 0],) * len(rayOrigins))
-        #normalVectors = np.array(([0, 0, 0],) * len(rayOrigins))
-        #colors = np.array(([0, 0, 0],) * len(rayOrigins))
-        #bodies = np.zeros(len(rayOrigins))
-        #hitInformations = IntersecPointInformations(maxRange, interPoints, normalVectors, colors, bodies)
-
-
-
-        hitInformations = np.array([informationToZipped(body.intersect(rayOrigins, rayDirections, True)) for body in scene])
-        hitInformations = reduceToMinimum(hitInformations)
-
-        #for info in hitInformations:
-        #    hitInformations = getShortestDistancesInformations(hitInformations, info)
-
-
-        bodies = np.array(hitInformations.bodies)
+        zippedHitInformations = np.array([informationToZipped(body.intersect(rayOrigins, rayDirections, True)) for body in scene])
+        zippedHitInformations = reduceToMinimum(zippedHitInformations)
+        bodies = zippedHitInformations[:,len(zippedHitInformations[0])-2]
 
 
         allIndices = []
         allBodyColors = []
         for body in scene:
             indices = np.where(bodies == body)[0]
-            #("len ind", len(indices))
-
-            zippedInformation = informationToZipped(hitInformations)
-            relevantInformations = zippedInformation[indices]
+            relevantInformations = zippedHitInformations[indices]
             if not len(relevantInformations):
                 continue
 
-            rDistances, rPoints, rNormalVectors, rColors, rBodies = zip(*relevantInformations)
-            relevantInformation = IntersecPointInformations(rDistances, rPoints, rNormalVectors, rColors, rBodies)
+            rDistances, rPoints, rNormalVectors, rColors, rBodies, rTypes = zip(*relevantInformations)
+            relevantInformation = IntersecPointInformations(rDistances, rPoints, rNormalVectors, rColors, rBodies, rTypes)
 
 
-            bodyColors = body.surface.getColor(indices, scene, relevantInformation, 3, self.currentDepth)
+            bodyColors = body.surface.getColor(indices, scene, relevantInformation, self.maxDepth, self.currentDepth)
             allIndices.extend(indices)
             allBodyColors.extend(bodyColors)
 
@@ -85,53 +68,21 @@ def informationToZipped(intersectionPointInformations):
     dist = intersectionPointInformations.distances
     insec = intersectionPointInformations.points
     normals = intersectionPointInformations.normalVectors
-    disp = intersectionPointInformations.displacedPoints
+    colors = intersectionPointInformations.colors
     bodies = intersectionPointInformations.bodies
+    types = intersectionPointInformations.types
 
-    return np.array(list(zip(dist, insec, normals, disp, bodies)))
+    return np.array(list(zip(dist, insec, normals, colors, bodies, types)))
 
-
-def getShortestDistancesInformations(shortestIntersectionInformations, bodyIntersectionInformations):
-    shortestDistances = shortestIntersectionInformations.distances
-
-    bodyDistances = bodyIntersectionInformations.distances
-
-    shortestIntersectionInformationsZipped = informationToZipped(shortestIntersectionInformations)
-    bodyIntersectionInformationsZipped = informationToZipped(bodyIntersectionInformations)
-
-    zeros = np.zeros(len(shortestDistances))
-
-
-    finalZip = np.where(np.logical_and((zeros <= bodyDistances), (bodyDistances< shortestDistances))[..., None], bodyIntersectionInformationsZipped, shortestIntersectionInformationsZipped)
-
-    dist, insec, norm,  col, bodies = zip(*finalZip)
-
-    #print(dist)
-    returnInformation = IntersecPointInformations(dist,insec,norm, col, bodies)
-    return returnInformation
 
 def reduceToMinimum(hitIntersectionInformations):
-    #print(hitIntersectionInformations.shape)
     distances = hitIntersectionInformations[:,:,0]
-    #print(distances.shape)
-    indices = [distances[:,i] for i in range(distances.shape[1])]
-    indices = [np.where(a > 0, a, np.inf) for a in indices]
+    distances = np.transpose(distances)
+    distances[distances < 0] = np.inf
 
-    mins = [np.min(a) for a in indices]
+    indices = np.argmin(distances,axis=1)
+    countIndices = np.arange(len(indices))
 
-    indices = np.array([np.where(a == min)for a, min in zip(indices,mins)])
-    indices = [index[0].tolist() for index in indices]
-    indices = [index[0] for index in indices]
+    finalZip = hitIntersectionInformations[indices,countIndices]
+    return finalZip
 
-
-    #print("len: ", len(indices), "shaoe", hitIntersectionInformations.shape)
-    finalZip = np.array([hitIntersectionInformations[val][i] for i, val in enumerate(indices)])
-
-    #print("len: ", len(finalZip), "shaoe", finalZip.shape)
-
-    dist, insec, norm,  col, bodies = zip(*finalZip)
-
-    #print(dist)
-    returnInformation = IntersecPointInformations(dist,insec,norm, col, bodies)
-
-    return returnInformation

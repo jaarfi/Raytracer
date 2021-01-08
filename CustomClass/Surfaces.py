@@ -2,7 +2,7 @@ import numpy as np
 from .Rays import Rays
 
 class Matt:
-    def __init__(self, color, nrReflectedRays =  20):
+    def __init__(self, color, nrReflectedRays =  1):
         self.color = color
         self.nrReflectedRays = nrReflectedRays
 
@@ -27,7 +27,7 @@ class Matt:
             dotProds = np.einsum('ij,ij->i',randomVectorArray, normalVectorsExtended)
             dotProds = np.array([np.array(np.array(dotProds)[i::len(rayOrigins)]).mean(axis=0) for i in range(len(rayOrigins))])
 
-            temp = rays.getColors(scene,0)
+            temp = rays.getColors(scene)
             temp = np.array([np.array(np.array(temp)[i::len(rayOrigins)]).mean(axis=0) for i in range(len(rayOrigins))])
             temp = temp * dotProds[:,None] / np.pi
             colors += np.multiply(colorsArray,temp)
@@ -38,7 +38,7 @@ class Matt:
             rays = Rays(hitInformation.displacedPoints, randomVectorArray, maxDepth, currentDepth + 1)
 
             dotProds = np.einsum('ij,ij->i', randomVectorArray, normalVectors)
-            temp = rays.getColors(scene, 0)
+            temp = rays.getColors(scene)
             temp = temp * dotProds[:, None] / np.pi
             colors += np.multiply(colorsArray, temp)
 

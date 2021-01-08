@@ -84,5 +84,6 @@ class Cuboid:
 
         colorsArray = (self.color, ) * len(rayOrigins)
         bodies = (self,) * len(rayOrigins)
-        infos = IntersecPointInformations(tReturn, intersecPointsWorldSpace, normalVectorArray, colorsArray, bodies)
+        types = (type(self.surface),) * len(rayOrigins)
+        infos = IntersecPointInformations(tReturn, intersecPointsWorldSpace, normalVectorArray, colorsArray, bodies, types)
         return infos
