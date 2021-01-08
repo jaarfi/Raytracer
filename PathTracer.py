@@ -61,7 +61,8 @@ def rayTrace(rays, scene, light):
 matt_blue = Matt((0,0,0.7))
 matt_grey = Matt((0.7,0.7,0.7))
 matt_red = Matt((0.7,0,0))
-radiant_white = Radiant((1,1,1))
+matt_yellow = Matt((0.7,0.7,0))
+radiant_white = Radiant((15,15,15))
 
 hinten = Plane( matt_grey, (0, 0, -1), 10, 10000, 0.01)
 rechts = Plane(matt_red, (-1, 0, 0), 10, 10000, 0.01)
@@ -70,13 +71,13 @@ oben = Plane(matt_grey, (0, -1, 0), 10, 10000, 0.01)
 links = Plane(matt_blue, (1, 0, 0), 0, 10000, 0.01)
 light = AxisAlignedSquare(radiant_white, (5,9.99,3), 3, 0, 0)
 behind = Plane(matt_grey, (1, 0, 0), 10, 10000, 0.01)
-cube1 = Cuboid(matt_red, (1.5, 1.5, 1.5), (5, 1.5, 3), 0, 100, 0.2)
+cube1 = Cuboid(matt_yellow, (1.5, 1.5, 1.5), (5, 1.5, 3), 0, 100, 0.2)
 #cube2 = Cuboid((1.5, 3, 1.5), (7, 3, 5), 45, (0.1, 0.1, 0.1), (0.7, 0.7, 0.7), (1, 1, 1), 100, 0.5)
 
 scene = [rechts, hinten, links, unten, oben, light, behind, cube1]
 
-xResolution = 100
-yResolution = 100
+xResolution = 200
+yResolution = 200
 maxDistance = 1e6
 
 camera = (5, 5, -5)
@@ -99,8 +100,8 @@ cameraCoordsArray = np.array(cameraCoordsArray)
 
 starttime = time.time()
 
-samples = 1
-maxDepth = 1
+samples = 20
+maxDepth = 2
 rays = Rays(cameraCoordsArray, pixelRays, maxDepth, 0)
 
 allColors = rayTrace(rays, scene, light)
@@ -111,7 +112,7 @@ allColors = np.array(allColors)
 allColors = allColors/samples
 
 timeTook = time.time() - starttime
-print("It took:", timeTook, "s")  # 50x50 = 9.2s 100x100 = 36.9
+print("It took:", timeTook, "s")  # res.depth.nrrays.samples 100x2x20x4 = 562s 100x2x5x4 = 146s 100x2x20x1 = 143s
 
 
 colors = np.reshape(allColors, (xResolution, yResolution, 3))

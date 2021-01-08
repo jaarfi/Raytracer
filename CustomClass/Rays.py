@@ -16,26 +16,24 @@ class Rays:
         rayDirections = self.directions
         rayOrigins = self.origins
 
-        maxRange = np.array((1e19,) * len(rayOrigins))
-        interPoints = np.array(([0, 0, 0],) * len(rayOrigins))
-        normalVectors = np.array(([0, 0, 0],) * len(rayOrigins))
-        colors = np.array(([0, 0, 0],) * len(rayOrigins))
-        bodies = np.zeros(len(rayOrigins))
-        hitInformations = IntersecPointInformations(maxRange, interPoints, normalVectors, colors, bodies)
+        #maxRange = np.array((1e19,) * len(rayOrigins))
+        #interPoints = np.array(([0, 0, 0],) * len(rayOrigins))
+        #normalVectors = np.array(([0, 0, 0],) * len(rayOrigins))
+        #colors = np.array(([0, 0, 0],) * len(rayOrigins))
+        #bodies = np.zeros(len(rayOrigins))
+        #hitInformations = IntersecPointInformations(maxRange, interPoints, normalVectors, colors, bodies)
 
-        time1 = time.time()
-        for body in scene:
-            #print(body)
-            intersectionInformations = body.intersect(rayOrigins, rayDirections, True)
-            hitInformations = getShortestDistancesInformations(hitInformations, intersectionInformations)
-            #print(hitInformations)
 
-        time2 = time.time() - time1
-        print("intersecting took", time2)
+
+        hitInformations = np.array([informationToZipped(body.intersect(rayOrigins, rayDirections, True)) for body in scene])
+        hitInformations = reduceToMinimum(hitInformations)
+
+        #for info in hitInformations:
+        #    hitInformations = getShortestDistancesInformations(hitInformations, info)
+
 
         bodies = np.array(hitInformations.bodies)
 
-        time1 = time.time()
 
         allIndices = []
         allBodyColors = []
@@ -44,20 +42,15 @@ class Rays:
             #("len ind", len(indices))
 
             zippedInformation = informationToZipped(hitInformations)
-            #print("len all", len(zippedInformation))
             relevantInformations = zippedInformation[indices]
-            #print("len rel",len(relevantInformations))
             if not len(relevantInformations):
                 continue
-            #print(len(indices))
 
             rDistances, rPoints, rNormalVectors, rColors, rBodies = zip(*relevantInformations)
             relevantInformation = IntersecPointInformations(rDistances, rPoints, rNormalVectors, rColors, rBodies)
-            #print("len relevant:", len(relevantInformation.bodies))
 
 
             bodyColors = body.surface.getColor(indices, scene, relevantInformation, 3, self.currentDepth)
-            #print(bodyColors)
             allIndices.extend(indices)
             allBodyColors.extend(bodyColors)
 
@@ -71,8 +64,6 @@ class Rays:
         colors = allBodyColors[sorter]
         #print(colors)
         #colors = getLambert(intersectionPoints, light, normalVectors, colors)
-        time2 = time.time() - time1
-        print("coloring took", time2)
         return colors
 
 def getLambert(intersectionPoints, light, normalVectors, colors):
@@ -117,4 +108,30 @@ def getShortestDistancesInformations(shortestIntersectionInformations, bodyInter
 
     #print(dist)
     returnInformation = IntersecPointInformations(dist,insec,norm, col, bodies)
+    return returnInformation
+
+def reduceToMinimum(hitIntersectionInformations):
+    #print(hitIntersectionInformations.shape)
+    distances = hitIntersectionInformations[:,:,0]
+    #print(distances.shape)
+    indices = [distances[:,i] for i in range(distances.shape[1])]
+    indices = [np.where(a > 0, a, np.inf) for a in indices]
+
+    mins = [np.min(a) for a in indices]
+
+    indices = np.array([np.where(a == min)for a, min in zip(indices,mins)])
+    indices = [index[0].tolist() for index in indices]
+    indices = [index[0] for index in indices]
+
+
+    #print("len: ", len(indices), "shaoe", hitIntersectionInformations.shape)
+    finalZip = np.array([hitIntersectionInformations[val][i] for i, val in enumerate(indices)])
+
+    #print("len: ", len(finalZip), "shaoe", finalZip.shape)
+
+    dist, insec, norm,  col, bodies = zip(*finalZip)
+
+    #print(dist)
+    returnInformation = IntersecPointInformations(dist,insec,norm, col, bodies)
+
     return returnInformation
