@@ -13,21 +13,25 @@ class Plane:
         self.reflection = reflection
 
     def intersect(self, rayOrigins, rayDirections, writeToDict):
-        rayDirections = np.array([ray / np.linalg.norm(ray) for ray in rayDirections])
-        a = np.array([-(np.dot(ray, self.normalVector) + self.distanceToOrigin) for ray in rayOrigins])
-        b = np.dot(rayDirections, self.normalVector)
+        length = len(rayOrigins)
 
-        b = np.where(b == 0, -1, b)
-        normalVectorArray = ((self.normalVector),) * len(rayOrigins)
-        normalVectorArray = np.stack(normalVectorArray)
+        rayDirectionsLengths = np.apply_along_axis(np.linalg.norm, 0, rayDirections)
+        rayDirections = rayDirections / rayDirectionsLengths
 
-        colorsArray = (self.color, ) * len(rayOrigins)
+        normalVector = self.normalVector
+
+        a = rayOrigins.dot(normalVector)
+        a = - a - self.distanceToOrigin
+        b = np.dot(rayDirections, normalVector)
+        b[b == 1] = -1
+        normalVectorArray = ((normalVector),) * length
+
+        colorsArray = (self.color, ) * length
 
         distances = a/b
-        intersecPoints = [distance * direction + origin for distance, direction, origin in zip(distances,rayDirections,rayOrigins)]
-        bodies = (self,) * len(rayOrigins)
-        types = (type(self.surface),) * len(rayOrigins)
-        #infos = IntersecPointInformations(a/b, intersecPoints, normalVectorArray, colorsArray, bodies, types)
+        intersecPoints = np.add(rayDirections * distances[:,np.newaxis], rayOrigins)
+        bodies = (self,) * length
+        types = (type(self.surface),) * length
         displacedPoints = intersecPoints + np.array(normalVectorArray)*0.01
         zippedInformation = np.array(list(zip(distances, intersecPoints, normalVectorArray, displacedPoints, colorsArray, bodies, types)))
         return zippedInformation
@@ -48,21 +52,26 @@ class AxisAlignedSquare:
                          [self.origin[0] - halfLength, self.origin[1], self.origin[2] - halfLength]]
 
     def intersect(self, rayOrigins, rayDirections, writeToDict):
-        rayDirections = np.array([ray / np.linalg.norm(ray) for ray in rayDirections])
-        a = np.array([-(np.dot(ray, self.normalVector) + self.distanceToOrigin) for ray in rayOrigins])
-        b = np.dot(rayDirections, self.normalVector)
+        length = len(rayOrigins)
 
-        b = np.where(b == 0, -1, b)
-        normalVectorArray = (self.normalVector,) * len(rayOrigins)
-        normalVectorArray = np.stack(normalVectorArray)
-        #print("normalVectorArray:", normalVectorArray)
-        colorsArray = (self.color, ) * len(rayOrigins)
+        rayDirectionsLengths = np.apply_along_axis(np.linalg.norm, 0, rayDirections)
+        rayDirections = rayDirections / rayDirectionsLengths
 
-        distances = a/b
-        intersecPoints = [distance * direction + origin for distance, direction, origin in zip(distances,rayDirections,rayOrigins)]
+        normalVector = self.normalVector
 
-        truthArray = [self.pointIsIn(point) for point in intersecPoints]
-        distances = np.where(truthArray, distances, -1)
+        a = rayOrigins.dot(normalVector)
+        a = - a - self.distanceToOrigin
+        b = np.dot(rayDirections, normalVector)
+        b[b == 1] = -1
+        normalVectorArray = ((normalVector),) * length
+
+        colorsArray = (self.color,) * length
+
+        distances = a / b
+        intersecPoints = np.add(rayDirections * distances[:, np.newaxis], rayOrigins)
+
+        #truthArray = [self.pointIsIn(point) for point in intersecPoints]
+        distances = np.where(self.pointIsIn(intersecPoints), distances, -1)
         bodies = (self,) * len(rayOrigins)
         types = (type(self.surface),) * len(rayOrigins)
         #infos = IntersecPointInformations(distances, intersecPoints, normalVectorArray, colorsArray, bodies,types)
@@ -70,8 +79,16 @@ class AxisAlignedSquare:
         zippedInformation = np.array(list(zip(distances, intersecPoints, normalVectorArray, displacedPoints, colorsArray, bodies, types)))
         return zippedInformation
 
-    def pointIsIn(self, intersectionPoint):
-        if self.origin[0] - self.halfLength < intersectionPoint[0] < self.origin[0] + self.halfLength:
-            if self.origin[2] - self.halfLength < intersectionPoint[2] < self.origin[2] + self.halfLength:
-                return True
-        return False
+    def pointIsIn(self, intersectionPoints):
+
+        intersectionPointsX = intersectionPoints[:,0]
+        intersectionPointsY = intersectionPoints[:,2]
+
+        intersectionPointsXDistances = np.abs(intersectionPointsX - self.origin[0])
+        intersectionPointsYDistances = np.abs(intersectionPointsY - self.origin[2])
+
+        xTruthValues = np.where(intersectionPointsXDistances < self.halfLength, True, False)
+        yTruthValues = np.where(intersectionPointsYDistances < self.halfLength, True, False)
+
+        truthValues = np.logical_and(xTruthValues, yTruthValues)
+        return truthValues

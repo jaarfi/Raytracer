@@ -49,8 +49,8 @@ cameraCoordsArray = np.array(cameraCoordsArray)
 
 starttime = time.time()
 
-samples = 1
-maxDepth = 4
+samples = 2
+maxDepth = 2
 rays = Rays(cameraCoordsArray, pixelRays, maxDepth, 0)
 
 allColors = rays.getColors(scene)
@@ -61,7 +61,7 @@ allColors = np.array(allColors)
 allColors = allColors/samples
 
 timeTook = time.time() - starttime
-print("It took:", timeTook, "s")  # 1sample, 1ray, 4depth, 100r = 12.27s
+print("It took:", timeTook, "s")  # 1sample, 1ray, 4depth, 100r = 12.27s 1sample, 5ray, 5depth, 100r = 53.6, 426
 
 
 colors = np.reshape(allColors, (xResolution, yResolution, 3))

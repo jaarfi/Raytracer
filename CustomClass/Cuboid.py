@@ -29,45 +29,48 @@ class Cuboid:
     def intersect(self, rayOrigins, rayDirections, writeToDict):
         # rayOrigin4 = np.append(rayOrigin,1)
         # rayOriginBoxSpace = np.matmul(self.transformationMatrix, rayOrigin4)[:3]
+
+        length = len(rayOrigins)
+
         rayDirections4 = np.insert(np.array(rayDirections), 3, 0, axis=1)
         rayDirectionsBoxSpace = np.einsum('...ij,...j', self.transformationMatrix, rayDirections4)
         rayDirectionsBoxSpace = np.delete(rayDirectionsBoxSpace, 3, 1)
-        rayDirectionsBoxSpace = np.array([ray / np.linalg.norm(ray) for ray in rayDirectionsBoxSpace])
+
+        rayDirectionsBoxSpaceLengths = np.apply_along_axis(np.linalg.norm, 0, rayDirectionsBoxSpace)
+
+        rayDirectionsBoxSpace = rayDirectionsBoxSpace / rayDirectionsBoxSpaceLengths
 
         rayOrigins4 = np.insert(np.array(rayOrigins), 3, 1, axis=1)
         rayOriginsBoxSpace = np.einsum('...ij,...j', self.transformationMatrix, rayOrigins4)
         rayOriginsBoxSpace = np.delete(rayOriginsBoxSpace, 3, 1)
 
-        # print(rayOriginsBoxSpace)
+        rayDirectionsBoxSpaceNoZeros = rayDirectionsBoxSpace[rayDirectionsBoxSpace == 0] = 0.00001
 
-        rayDirectionsBoxSpaceNoZeros = np.array([np.where(a == 0, 0.000001, a) for a in rayDirectionsBoxSpace])
+        rayOriginsBoxSpacePlus = - rayOriginsBoxSpace + self.size
+        t1 = np.divide(rayOriginsBoxSpacePlus, rayDirectionsBoxSpaceNoZeros)
 
-        t1 = [np.divide((-b + self.size), a) for a, b in zip(rayDirectionsBoxSpaceNoZeros, rayOriginsBoxSpace)]
-        t2 = [np.divide((-b - self.size), a) for a, b in zip(rayDirectionsBoxSpaceNoZeros, rayOriginsBoxSpace)]
+        rayOriginsBoxSpaceMinus = - rayOriginsBoxSpace - self.size
+        t2 = np.divide(rayOriginsBoxSpaceMinus, rayDirectionsBoxSpaceNoZeros)
+        t3 = np.minimum(t1,t2)
+        t4 = np.maximum(t1,t2)
 
-        t3 = ([np.where(a < b, a, b) for a, b in np.array(list(zip(t1, t2)))])
-        t4 = ([np.where(a > b, a, b) for a, b in np.array(list(zip(t1, t2)))])
-
-        tMin = np.array([np.max(a) for a in t3])
-        tMax = np.array([np.min(b) for b in t4])
+        tMin = np.max(t3, axis=1)
+        tMax = np.min(t4, axis=1)
 
         tReturn = np.where(np.logical_and(tMin < tMax, tMax > 0), tMin, -1)
 
         tReturn = np.where(tMin < 0, tMax, tReturn)
 
+        t = np.block([[t1[:,0]], [t2[:,0] ],[t1[:,1]], [t2[:,1]],[t1[:,2]], [t2[:,2]]]).T
 
-        #print("tReturn: ", tReturn)
+        ones = np.ones(length)
+        ones *= -1
+        t = np.insert(t,6,ones,axis=1)
 
-        t = np.array([(a[0], b[0], a[1], b[1], a[2], b[2]) for a, b in zip(t1, t2)])
 
-        t = [np.append(a,-1) for a in t]
-
-        #print(tReturn)
-
-        tSides = [np.where(a == b)[0] for a, b in zip(t, tReturn)]
-
-        #print(tSides)
-        tSides = [a[0] for a in tSides]
+        #tSides = [np.where(a == b)[0] for a, b in zip(t, tReturn)]
+        #tSides = [a[0] for a in tSides]
+        tSides = np.where(t == np.array(tReturn)[:, None])[1]
 
         normalVectors = np.array((self.transformationMatrix[0][:3],  # rechts
                                   - 1 * self.transformationMatrix[0][:3],  # links
@@ -81,11 +84,11 @@ class Cuboid:
         intersecPointsWorldSpace = rayOrigins + tReturn[..., None] * rayDirections
 
         normalVectorArray = [normalVectors[tSides]][0]
-        normalVectorArray = np.stack(normalVectorArray)
+        #normalVectorArray = np.stack(normalVectorArray)
 
-        colorsArray = (self.color, ) * len(rayOrigins)
-        bodies = (self,) * len(rayOrigins)
-        types = (type(self.surface),) * len(rayOrigins)
+        colorsArray = (self.color, ) * length
+        bodies = (self,) * length
+        types = (type(self.surface),) * length
         displacedPoints = intersecPointsWorldSpace + np.array(normalVectorArray)*0.01
         zippedInformation = np.array(list(zip(tReturn, intersecPointsWorldSpace, normalVectorArray, displacedPoints, colorsArray, bodies, types)))
         #infos = IntersecPointInformations(tReturn, intersecPointsWorldSpace, normalVectorArray, colorsArray, bodies, types)
