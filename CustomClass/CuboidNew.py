@@ -44,7 +44,10 @@ class Cuboid:
         rayOriginsBoxSpace = np.einsum('...ij,...j', self.transformationMatrix, rayOrigins4)
         rayOriginsBoxSpace = np.delete(rayOriginsBoxSpace, 3, 1)
 
-        rayDirectionsBoxSpaceNoZeros = rayDirectionsBoxSpace[rayDirectionsBoxSpace == 0] = 0.00001
+        #rayDirectionsBoxSpaceNoZeros = rayDirectionsBoxSpace[rayDirectionsBoxSpace == 0] = 0.00001
+        rayDirectionsBoxSpaceNoZeros = rayDirectionsBoxSpace
+        rayDirectionsBoxSpaceNoZeros[rayDirectionsBoxSpaceNoZeros == 0] = 0.00001
+        #rayDirectionsBoxSpaceNoZeros = np.array([np.where(a == 0, 0.000001, a) for a in rayDirectionsBoxSpace])
 
         rayOriginsBoxSpacePlus = - rayOriginsBoxSpace + self.size
         t1 = np.divide(rayOriginsBoxSpacePlus, rayDirectionsBoxSpaceNoZeros)

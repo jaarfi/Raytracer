@@ -2,6 +2,7 @@ import numpy as np
 import time
 from .IntersecPointInformations import IntersecPointInformations
 import CustomClass.Surfaces
+import CustomClass.CuboidNew
 
 class Rays:
     def __init__(self, origins, directions, maxDepth, currentDepth):

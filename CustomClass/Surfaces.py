@@ -2,7 +2,7 @@ import numpy as np
 import CustomClass.Rays
 
 class Matt:
-    def __init__(self, color, nrReflectedRays =  5):
+    def __init__(self, color, nrReflectedRays =  20):
         self.color = color
         self.nrReflectedRays = nrReflectedRays
 
@@ -33,7 +33,7 @@ class Matt:
 
             temp = rays.getColors(scene)
             temp = np.array([np.array(np.array(temp)[i::len(rayOrigins)]).mean(axis=0) for i in range(len(rayOrigins))])
-            temp = temp * dotProds[:,None] / np.pi
+            temp = temp * dotProds[:,None] / np.pi * 0.18
             colors += np.multiply(colorsArray,temp)
 
         elif currentDepth < maxDepth:

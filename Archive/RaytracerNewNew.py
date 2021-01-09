@@ -60,6 +60,7 @@ class Plane:
         specular = np.array([a * b for a,b in zip(specular, dotProdsSpecular)])
 
         colors = ambient + diffuse + specular
+        return (self.colorDiffuse,) * len(intersectionPoints)
         return colors * np.power(self.reflection,currentDepth)
 
     def getNormalVector(self, intersectionPoint):
@@ -196,6 +197,7 @@ class Cuboid:
         specular = np.array([a * b for a, b in zip(specular, dotProdsSpecular)])
 
         colors = ambient + diffuse + specular
+        return (self.colorDiffuse,) * len(intersectionPoints)
         return colors  * np.power(self.reflection,currentDepth)
 
         #lengths1 = np.square(raysToLightSource[:, 0]) + np.square(raysToLightSource[:, 1]) + np.square(
@@ -310,7 +312,7 @@ def rayTrace(allPixelCoords, cameraCoords, scene, light, maxDepth, currentDepth)
     realColors = np.zeros(3) * realColors[:, None]
 
     colors = allBodyColors[sorter]
-    colors = np.array([color * factorsArray[i] for i, color in enumerate(colors)])
+    #colors = np.array([color * factorsArray[i] for i, color in enumerate(colors)])
     realColors = realColors + colors
     dummy = range(len(pixelRays))
 
@@ -325,13 +327,13 @@ def rayTrace(allPixelCoords, cameraCoords, scene, light, maxDepth, currentDepth)
 
 
 hinten  = Plane((0, 0, -1), 10, (0.1,0.1,0.1),(0.7,0.7,0.7),(0,0,0),10000,0)
-rechts  = Plane((-1, 0, 0), 10, (0.1,0,0),(0.7,0,0),(0,0,0),10000,0)
+rechts  = Plane((-1, 0, 0), 10, (0.1,0,0),(0,0,0.7),(0,0,0),10000,0)
 unten   = Plane((0,1,0), 0, (0.1,0.1,0.1),(0.7,0.7,0.7),(0,0,0),10000,0)
 oben    = Plane((0,-1,0),10,(0.1,0.1,0.1),(0.7,0.7,0.7),(0,0,0),10000,0)
-links   = Plane((1,0,0),0,(0.1,0,0.1),(0.7,0,0.7),(0,0,0),10000,0)
+links   = Plane((1,0,0),0,(0.1,0,0.1),(0.7,0,0),(0,0,0),10000,0)
 behind = Plane((1,0,0),10,(0.1,0,0.1),(0.7,0,0.7),(0,0,0),10000,0)
-cube1   = Cuboid((1.5,1.5,1.5),(2.5,1.5,4),0,(0,0.1,0.1),(0,0.7,0.7),(1,1,1),100,1)
-cube2   = Cuboid((1.5,3,1.5),(7,3,5),45,(0.1,0.1,0),(0.7,0.7,0),(1,1,1),100,1)
+cube1   = Cuboid((1.5,1.5,1.5),(2.5,1.5,4),0,(0.1,0.1,0),(0.7,0.7,0),(1,1,1),100,1)
+cube2   = Cuboid((1.5,3,1.5),(7,3,5),45,(0.1,0.1,0),(0.6,0.6,0.6),(1,1,1),100,1)
 
 
 scene = [rechts, hinten, links, unten, oben, cube1, cube2]
